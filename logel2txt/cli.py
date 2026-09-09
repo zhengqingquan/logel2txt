@@ -20,7 +20,9 @@ from logel2txt.format import parse_hms_ms
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
-        description="导出 ArmLogel/Logel ARM 日志为 txt（对齐 Export Trace 格式）"
+        description=(
+            "Export ArmLogel/Logel ARM logs to txt (Export Trace-aligned format)"
+        )
     )
     ap.add_argument(
         "-V",
@@ -31,33 +33,36 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument(
         "input",
         type=Path,
-        help="armlog 目录、.logel，或已含 traceview.dat/pbs 的目录",
+        help="armlog directory, .logel, or a directory containing traceview.dat/pbs",
     )
     ap.add_argument(
         "-o",
         "--output",
         type=Path,
         default=None,
-        help="输出文件路径（默认写到输入旁 .txt）",
+        help="output path (default: .txt next to the input)",
     )
     ap.add_argument(
         "--ue-base",
         type=parse_hms_ms,
         default=None,
-        help="UE 起始时刻 HH:MM:SS.mmm（默认 0，即 UE Time 与 TickCount 同起点）",
+        help=(
+            "UE start time HH:MM:SS.mmm "
+            "(default 0: UE Time shares TickCount origin)"
+        ),
     )
     ap.add_argument(
         "--ext",
         choices=("txt", "trace"),
         default="txt",
-        help="未指定 -o 时的默认扩展名（默认 txt）",
+        help="default extension when -o is omitted (default: txt)",
     )
     args = ap.parse_args(argv)
 
     try:
         mode, payload = resolve_inputs(args.input)
     except FileNotFoundError as e:
-        print(f"[错误] {e}", file=sys.stderr)
+        print(f"[ERROR] {e}", file=sys.stderr)
         return 1
 
     ue_base = args.ue_base if args.ue_base is not None else 0
@@ -72,36 +77,38 @@ def main(argv: Optional[List[str]] = None) -> int:
             src: Path = payload  # type: ignore
             data = src.read_bytes()
             out.write_bytes(data)
-            print(f"[完成] 已复制 {src} -> {out} ({len(data)} bytes)")
+            print(f"[DONE] Copied {src} -> {out} ({len(data)} bytes)")
             return 0
 
         if mode == "traceview":
             dat, pbs = payload  # type: ignore
-            print(f"[信息] 使用 traceview: {dat.parent.name}")
+            print(f"[INFO] Using traceview: {dat.parent.name}")
             lines = export_from_traceview(dat, pbs, ue_base)
-            note = "完整解码（traceview）"
+            note = "full decode (traceview)"
         else:
             logel: Path = payload  # type: ignore
             print(
-                f"[警告] 未找到 traceview，仅从 logel 抽取明文: {logel.name}\n"
-                "       建议先用 Logel 打开该日志（生成 *_pb 或回放目录）后再导出。"
+                f"[WARN] No traceview found; plaintext extract from logel: "
+                f"{logel.name}\n"
+                "       Open the log in Logel first (to create *_pb / replay "
+                "cache), then export again."
             )
             lines = export_from_logel_raw(logel, ue_base)
-            note = "明文抽取（不完整）"
+            note = "plaintext extract (incomplete)"
 
         write_lines(out, lines)
         data_lines = len(lines) - 1
         size = out.stat().st_size
-        print(f"[完成] {note}")
-        print(f"       行数: {data_lines}")
-        print(f"       输出: {out}")
-        print(f"       大小: {size / (1024 * 1024):.2f} MB")
+        print(f"[DONE] {note}")
+        print(f"       lines: {data_lines}")
+        print(f"       output: {out}")
+        print(f"       size: {size / (1024 * 1024):.2f} MB")
         if args.ue_base is None:
             print(
-                "       提示: 未指定 --ue-base，UE Time 从 0:00:00.000 起算；"
-                "若需对齐设备时钟可加如 --ue-base 17:15:12.275"
+                "       note: --ue-base not set; UE Time starts at 0:00:00.000; "
+                "use e.g. --ue-base 17:15:12.275 to align with device clock"
             )
         return 0
     except Exception as e:
-        print(f"[错误] {e}", file=sys.stderr)
+        print(f"[ERROR] {e}", file=sys.stderr)
         return 2

@@ -30,7 +30,7 @@ def parse_hms_ms(text: str) -> int:
     m = re.match(r"^(\d+):(\d+):(\d+)\.(\d+)$", text.strip())
     if not m:
         raise argparse.ArgumentTypeError(
-            f"无效时间格式: {text!r}，期望如 17:15:12.275"
+            f"invalid time format: {text!r}, expected e.g. 17:15:12.275"
         )
     h, mi, s, ms = map(int, m.groups())
     if len(m.group(4)) != 3:

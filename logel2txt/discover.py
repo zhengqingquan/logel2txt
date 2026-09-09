@@ -45,7 +45,7 @@ def resolve_inputs(path: Path) -> Tuple[str, object]:
             return "logel", path
         if suf in (".trace", ".txt"):
             return "trace_copy", path
-        raise FileNotFoundError(f"不支持的文件类型: {path}")
+        raise FileNotFoundError(f"unsupported file type: {path}")
 
     if not path.is_dir():
         raise FileNotFoundError(path)
@@ -57,8 +57,9 @@ def resolve_inputs(path: Path) -> Tuple[str, object]:
     if logel:
         return "logel", logel
     raise FileNotFoundError(
-        f"未找到 traceview.dat/pbs 或 .logel: {path}\n"
-        "提示: 先用 ArmLogel/Logel 打开该日志生成回放缓存后再导出，可得到完整解码。"
+        f"no traceview.dat/pbs or .logel found: {path}\n"
+        "hint: open the log in ArmLogel/Logel to build a replay cache, "
+        "then export for a full decode."
     )
 
 

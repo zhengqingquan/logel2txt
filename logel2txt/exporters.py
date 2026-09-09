@@ -22,9 +22,11 @@ def export_from_traceview(
     dat = dat_path.read_bytes()
     pbs = pbs_path.read_bytes()
     if pbs[:4] != PBS_MAGIC:
-        raise ValueError(f"不是有效的 traceview.pbs (magic={pbs[:4]!r}): {pbs_path}")
+        raise ValueError(
+            f"invalid traceview.pbs (magic={pbs[:4]!r}): {pbs_path}"
+        )
     if len(pbs) < PBS_HEADER_SIZE + PBS_REC_SIZE:
-        raise ValueError(f"traceview.pbs 过小: {pbs_path}")
+        raise ValueError(f"traceview.pbs too small: {pbs_path}")
 
     n = (len(pbs) - PBS_HEADER_SIZE) // PBS_REC_SIZE
     lines = [HDR]
