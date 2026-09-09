@@ -9,15 +9,15 @@
 ## 依赖
 
 - Windows
-- Python 3.7+（命令行可用 `python`）
+- 运行：`logel2txt.exe`（无需本机 Python）或 Python 3.7+
+- 打包 exe：Python 3.7+、PyInstaller（见下方「打包」）
 
 ## 文件
 
 | 文件 / 目录 | 说明 |
 |-------------|------|
 | `logel2txt/` | 包：`format` / `discover` / `exporters` / `cli` |
-| `logel2txt.py` | 薄入口（调用包内 CLI） |
-| `logel2txt.bat` | Windows 快捷入口 |
+| `logel2txt.py` | CLI 入口（开发 / PyInstaller） |
 | `tests/` | 标准库 unittest |
 | `README.md` | 本说明 |
 | `CHANGELOG.md` | 更新记录 |
@@ -25,21 +25,26 @@
 ## 用法
 
 ```bat
-REM 查看版本
-logel2txt.bat --version
+REM 推荐：exe
+logel2txt.exe --version
+logel2txt.exe "D:\work\logs\xxx_armlog"
+logel2txt.exe "D:\work\logs\xxx_armlog" -o "D:\work\logs\out.txt"
+logel2txt.exe "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
+logel2txt.exe "D:\work\logs\xxx.logel" -o out.txt
+
+REM 或用 Python
 python logel2txt.py -V
-python -m logel2txt -V
-
-REM 方式一：bat
-logel2txt.bat "D:\work\logs\xxx_armlog"
-
-REM 方式二：python / 模块
-python logel2txt.py "D:\work\logs\xxx_armlog"
 python -m logel2txt "D:\work\logs\xxx_armlog"
-python logel2txt.py "D:\work\logs\xxx_armlog" -o "D:\work\logs\out.txt"
-python logel2txt.py "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
-python logel2txt.py "D:\work\logs\xxx.logel" -o out.txt
 ```
+
+### 打包
+
+```bat
+python -m pip install pyinstaller
+python -m PyInstaller --noconfirm --clean --onefile --console --name logel2txt logel2txt.py
+```
+
+产物：`dist\logel2txt.exe`（单文件控制台程序；`build/` / `dist/` 已忽略）。
 
 ### 测试
 
@@ -64,8 +69,7 @@ python -m unittest discover -s tests -v
 3. 再运行本工具导出 txt
 
 ```bat
-cd /d D:\work\logel2txt
-logel2txt.bat "..\xxx_armlog" -o "..\out.txt" --ue-base 17:15:12.275
+logel2txt.exe "..\xxx_armlog" -o "..\out.txt" --ue-base 17:15:12.275
 ```
 
 `--ue-base` 可从 Logel Export Trace 首行的 `UE Time` 抄取，用于对齐设备时钟。

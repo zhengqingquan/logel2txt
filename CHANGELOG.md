@@ -4,11 +4,19 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 支持用 PyInstaller 打包单文件 `dist/logel2txt.exe`（见 README「打包」）。
+
 ### 变更
 
 - 将单文件拆为包 `logel2txt/`（`format` / `discover` / `exporters` / `cli`）；根目录 `logel2txt.py` 改为薄入口，并支持 `python -m logel2txt`。
 - 新增 `tests/`：格式化、traceview 最小伪造字节、路径发现（标准库 unittest）。
 - CLI 日志、错误与 argparse 帮助改为英文输出。
+
+### 移除
+
+- 移除 `logel2txt.bat`；推荐使用 `logel2txt.exe` 或 `python logel2txt.py`。
 
 ## [0.1.0] - 2026-09-09
 

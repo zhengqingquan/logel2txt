@@ -7,9 +7,10 @@ logel2txt — 将展锐 ArmLogel / Logel 抓取的 ARM 日志导出为文本（.
 含格式化 TRACE）；若只有 .logel，则尽力抽取明文字符串（不完整）。
 
 用法:
+  logel2txt.exe <armlog目录|.logel|含traceview的目录> [-o 输出.txt]
   python logel2txt.py <armlog目录|.logel|含traceview的目录> [-o 输出.txt]
   python -m logel2txt <armlog目录|.logel> [-o 输出.txt]
-  python logel2txt.py --version
+  logel2txt.exe --version
 
 说明:
   - 若目录下存在 *_pb\\traceview.*（回放缓存），优先使用，结果最接近 Logel「Export Trace」
