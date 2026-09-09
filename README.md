@@ -2,9 +2,9 @@
 
 将展锐 **ArmLogel / Logel** 的 ARM 日志导出为文本（`.txt` / `.trace`），格式对齐 **Export Trace**。
 
-版本 **0.1.0** · 列：`SN` / `UE Time` / `CORE` / `Content` / `Module` / `TickCount`（Tab · CRLF）· 详见 [CHANGELOG.md](CHANGELOG.md)
+**0.1.0**（[CHANGELOG](CHANGELOG.md)）· 列：`SN` / `UE Time` / `CORE` / `Content` / `Module` / `TickCount`（Tab · CRLF）
 
-更多说明：[目录结构](docs/armlog-layout.md) · [常见问题](docs/troubleshooting.md)
+说明：[目录结构](docs/armlog-layout.md) · [常见问题](docs/troubleshooting.md)
 
 ## 快速开始
 
@@ -24,6 +24,8 @@ python logel2txt.py "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
 | `--ext` | 未指定 `-o` 时扩展名：`txt`（默认）/ `trace` |
 | `-V` | 版本号 |
 
+成功摘要在 stdout；`[WARN]` / `[ERROR]` 在 **stderr**（非 `*_pb`、0 行、读写失败等会告警）。
+
 ## 能力边界
 
 本工具**不调用** Logel 解析库，只读已解码缓存或抽明文。完整解码依赖 Logel 闭源库，无法仅靠 `.logel` / rar 对齐完整 Export。细节见 [docs/troubleshooting.md](docs/troubleshooting.md)。
@@ -31,7 +33,7 @@ python logel2txt.py "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
 | 输入 | 效果 |
 |------|------|
 | `*_pb\traceview.*`（推荐） | 完整导出，可对齐 Export Trace |
-| 非 `_pb` 的旧 `traceview.*` | 可能偏少 |
+| 非 `_pb` 的旧 `traceview.*` | 可能偏少（stderr 有警告） |
 | 仅 `.logel` / 刚解压 rar | 明文抽取，不完整 |
 | 空的 `*_trace.txt` | 无效 |
 

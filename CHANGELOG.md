@@ -4,28 +4,22 @@
 
 ## [Unreleased]
 
-### 新增
-
-- 提供 `logel2txt.spec`，用 PyInstaller 打包单文件 `dist/logel2txt.exe`。
-- 新增 `docs/`：armlog 目录结构说明与 README 能力边界 / 常见问题展开。
-
-### 变更
-
-- 将单文件拆为包 `logel2txt/`（`format` / `discover` / `exporters` / `cli`）；根目录 `logel2txt.py` 改为薄入口，并支持 `python -m logel2txt`。
-- 新增 `tests/`：格式化、traceview 最小伪造字节、路径发现（标准库 unittest）。
-- CLI 日志、错误与 argparse 帮助改为英文输出。
-- 精简 README 结构（快速开始 / 能力边界 / 开发）。
-- 补全错误/告警路径日志：`[WARN]`/`[ERROR]` 走 stderr；非 `*_pb`、0 行、读写失败带路径与异常类型。
-
-### 移除
-
-- 移除 `logel2txt.bat`；推荐使用 `logel2txt.exe` 或 `python logel2txt.py`。
-
 ## [0.1.0] - 2026-09-09
 
 ### 新增
 
-- 提供 `logel2txt.py` / `logel2txt.bat`：从 ArmLogel / Logel 的 `traceview.dat` / `traceview.pbs`（优先 `*_pb`）导出 Tab 分隔文本（`.txt` / `.trace`），列与 Export Trace 对齐。
-- 支持指定输出路径（`-o`）、设备起始时刻（`--ue-base`）及默认扩展名（`--ext`）。
-- 支持 `-V` / `--version` 显示版本号（当前 `0.1.0`）。
-- 补充 README：推荐「先用 Logel 打开生成缓存再导出」流程，并说明仅 `.logel` / 明文抽取时的能力边界。
+- 从 ArmLogel / Logel 的 `traceview.dat` / `traceview.pbs`（优先 `*_pb`）导出 Tab 分隔文本（`.txt` / `.trace`），列与 Export Trace 对齐。
+- 支持 `-o`、`--ue-base`、`--ext`，以及 `-V` / `--version`。
+- 包结构 `logel2txt/`（`format` / `discover` / `exporters` / `cli`），入口 `logel2txt.py` / `python -m logel2txt`。
+- `logel2txt.spec`：PyInstaller 单文件 `dist/logel2txt.exe`。
+- `tests/`：格式化、traceview、路径发现、CLI 错误路径（标准库 unittest）。
+- `docs/`：armlog 目录结构与能力边界 / 常见问题。
+
+### 变更
+
+- CLI 日志、错误与 argparse 帮助为英文；`[WARN]` / `[ERROR]` 输出到 stderr。
+- 非 `*_pb`、0 行导出、读写失败等路径补充告警（含路径与异常类型）。
+
+### 移除
+
+- 不再提供 `logel2txt.bat`；请使用 `logel2txt.exe` 或 `python logel2txt.py`。

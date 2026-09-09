@@ -1,6 +1,6 @@
 # 常见问题与能力说明
 
-对应 [README](../README.md)「能力边界」：本工具**不替代** Logel 做完整解码，只读取已生成的 `traceview` 或从 `.logel` 抽明文。
+对应 [README](../README.md)「能力边界」（**0.1.0**）：本工具**不替代** Logel 做完整解码，只读取已生成的 `traceview` 或从 `.logel` 抽明文。
 
 ## 为什么必须先用 Logel 打开？
 

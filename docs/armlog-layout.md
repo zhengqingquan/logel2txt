@@ -46,6 +46,6 @@
 1. 解压 rar（若有）得到 `*_armlog`
 2. 用 **ArmLogel / Logel** 打开该目录或 `.logel`，等待解析结束
 3. 确认出现 `*_pb\traceview.dat` 与 `traceview.pbs`
-4. 再运行 `logel2txt`（需要绝对 UE Time 时加 `--ue-base`）
+4. 再运行 `logel2txt.exe` 或 `python logel2txt.py`（需要绝对 UE Time 时加 `--ue-base`）
 
 更细的「为何必须先开 Logel、行数对不齐」见 [troubleshooting.md](troubleshooting.md)。
