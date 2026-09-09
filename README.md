@@ -18,6 +18,7 @@
 |-------------|------|
 | `logel2txt/` | 包：`format` / `discover` / `exporters` / `cli` |
 | `logel2txt.py` | CLI 入口（开发 / PyInstaller） |
+| `logel2txt.spec` | PyInstaller 配方（产出 `dist/logel2txt.exe`） |
 | `tests/` | 标准库 unittest |
 | `README.md` | 本说明 |
 | `CHANGELOG.md` | 更新记录 |
@@ -41,7 +42,7 @@ python -m logel2txt "D:\work\logs\xxx_armlog"
 
 ```bat
 python -m pip install pyinstaller
-python -m PyInstaller --noconfirm --clean --onefile --console --name logel2txt logel2txt.py
+python -m PyInstaller --noconfirm --clean logel2txt.spec
 ```
 
 产物：`dist\logel2txt.exe`（单文件控制台程序；`build/` / `dist/` 已忽略）。

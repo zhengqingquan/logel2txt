@@ -6,7 +6,7 @@
 
 ### 新增
 
-- 支持用 PyInstaller 打包单文件 `dist/logel2txt.exe`（见 README「打包」）。
+- 提供 `logel2txt.spec`，用 PyInstaller 打包单文件 `dist/logel2txt.exe`。
 
 ### 变更
 

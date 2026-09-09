@@ -27,7 +27,6 @@ htmlcov/
 # PyInstaller
 build/
 dist/
-*.spec
 
 # OS / 编辑器
 Thumbs.db
