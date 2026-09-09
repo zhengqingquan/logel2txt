@@ -19,8 +19,16 @@ def export_from_traceview(
     pbs_path: Path,
     ue_base_ms: int,
 ) -> List[str]:
-    dat = dat_path.read_bytes()
-    pbs = pbs_path.read_bytes()
+    try:
+        dat = dat_path.read_bytes()
+    except OSError as e:
+        raise OSError(f"failed to read {dat_path}: {e}") from e
+    try:
+        pbs = pbs_path.read_bytes()
+    except OSError as e:
+        raise OSError(f"failed to read {pbs_path}: {e}") from e
+    if len(pbs) < 4:
+        raise ValueError(f"traceview.pbs too small: {pbs_path}")
     if pbs[:4] != PBS_MAGIC:
         raise ValueError(
             f"invalid traceview.pbs (magic={pbs[:4]!r}): {pbs_path}"
@@ -50,7 +58,10 @@ def export_from_traceview(
 
 def export_from_logel_raw(logel_path: Path, ue_base_ms: int) -> List[str]:
     """无 traceview 时：从 .logel 抽取 0x9104 明文 TLV（不含需 DB 解码的格式化 TRACE）。"""
-    data = logel_path.read_bytes()
+    try:
+        data = logel_path.read_bytes()
+    except OSError as e:
+        raise OSError(f"failed to read {logel_path}: {e}") from e
     lines = [HDR]
     # 回溯找最近 SN：包头近似 u32,a / i32,sn / u16,a_lo / u16,plen / u16,pad
     last_sn = 0
@@ -93,9 +104,12 @@ def export_from_logel_raw(logel_path: Path, ue_base_ms: int) -> List[str]:
 
 
 def write_lines(path: Path, lines: Iterable[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # 与 Logel Export Trace 一致：CRLF 换行
-    text = "\r\n".join(lines)
-    if not text.endswith("\r\n"):
-        text += "\r\n"
-    path.write_bytes(text.encode("utf-8"))
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # 与 Logel Export Trace 一致：CRLF 换行
+        text = "\r\n".join(lines)
+        if not text.endswith("\r\n"):
+            text += "\r\n"
+        path.write_bytes(text.encode("utf-8"))
+    except OSError as e:
+        raise OSError(f"failed to write {path}: {e}") from e

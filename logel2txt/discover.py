@@ -34,6 +34,9 @@ def resolve_inputs(path: Path) -> Tuple[str, object]:
     mode: 'traceview' | 'logel' | 'trace_copy'
     """
     path = path.resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"input path not found: {path}")
+
     if path.is_file():
         suf = path.suffix.lower()
         if suf == ".logel":
@@ -48,7 +51,7 @@ def resolve_inputs(path: Path) -> Tuple[str, object]:
         raise FileNotFoundError(f"unsupported file type: {path}")
 
     if not path.is_dir():
-        raise FileNotFoundError(path)
+        raise FileNotFoundError(f"input is not a file or directory: {path}")
 
     pair = find_traceview_pair(path)
     if pair:
@@ -57,7 +60,7 @@ def resolve_inputs(path: Path) -> Tuple[str, object]:
     if logel:
         return "logel", logel
     raise FileNotFoundError(
-        f"no traceview.dat/pbs or .logel found: {path}\n"
+        f"no traceview.dat/pbs or .logel found under: {path}\n"
         "hint: open the log in ArmLogel/Logel to build a replay cache, "
         "then export for a full decode."
     )
