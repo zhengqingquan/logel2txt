@@ -7,12 +7,14 @@
 ### 新增
 
 - 提供 `logel2txt.spec`，用 PyInstaller 打包单文件 `dist/logel2txt.exe`。
+- 新增 `docs/`：armlog 目录结构说明与 README 能力边界 / 常见问题展开。
 
 ### 变更
 
 - 将单文件拆为包 `logel2txt/`（`format` / `discover` / `exporters` / `cli`）；根目录 `logel2txt.py` 改为薄入口，并支持 `python -m logel2txt`。
 - 新增 `tests/`：格式化、traceview 最小伪造字节、路径发现（标准库 unittest）。
 - CLI 日志、错误与 argparse 帮助改为英文输出。
+- 精简 README 结构（快速开始 / 能力边界 / 开发）。
 
 ### 移除
 
