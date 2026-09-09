@@ -13,10 +13,12 @@
 
 ## 文件
 
-| 文件 | 说明 |
-|------|------|
-| `logel2txt.py` | 主程序 |
+| 文件 / 目录 | 说明 |
+|-------------|------|
+| `logel2txt/` | 包：`format` / `discover` / `exporters` / `cli` |
+| `logel2txt.py` | 薄入口（调用包内 CLI） |
 | `logel2txt.bat` | Windows 快捷入口 |
+| `tests/` | 标准库 unittest |
 | `README.md` | 本说明 |
 | `CHANGELOG.md` | 更新记录 |
 
@@ -26,15 +28,23 @@
 REM 查看版本
 logel2txt.bat --version
 python logel2txt.py -V
+python -m logel2txt -V
 
 REM 方式一：bat
 logel2txt.bat "D:\work\logs\xxx_armlog"
 
-REM 方式二：python
+REM 方式二：python / 模块
 python logel2txt.py "D:\work\logs\xxx_armlog"
+python -m logel2txt "D:\work\logs\xxx_armlog"
 python logel2txt.py "D:\work\logs\xxx_armlog" -o "D:\work\logs\out.txt"
 python logel2txt.py "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
 python logel2txt.py "D:\work\logs\xxx.logel" -o out.txt
+```
+
+### 测试
+
+```bat
+python -m unittest discover -s tests -v
 ```
 
 ### 参数
