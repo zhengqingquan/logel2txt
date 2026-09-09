@@ -4,7 +4,7 @@
 
 版本 **0.1.0** · 列：`SN` / `UE Time` / `CORE` / `Content` / `Module` / `TickCount`（Tab · CRLF）· 详见 [CHANGELOG.md](CHANGELOG.md)
 
-更多说明：[docs/](docs/)（[目录结构](docs/armlog-layout.md) · [常见问题](docs/troubleshooting.md)）
+更多说明：[目录结构](docs/armlog-layout.md) · [常见问题](docs/troubleshooting.md)
 
 ## 快速开始
 
