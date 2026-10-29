@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### 新增
+
+- `logel2txt playback`：Logel 命令行回放生成 `*_pb` 后导出（默认 `Logel_R9.21.1403`）；支持 `--logel` / `--no-hide` / `--skip-playback`。
+- `logel2txt/playback.py`：回放逻辑模块（`logel2txt playback` 子命令）。
+
+### 修复
+
+- Content 中 `0xFF` 等字节改为 latin-1 编解码，避免写成 U+FFFD，更接近 Logel Export Trace。
+
+### 文档
+
+- 说明 R9.26.x CLI PBS 与 logel2txt 不兼容；推荐 R9.21 做命令行回放；主推 `playback` 子命令。
+
 ## [0.1.0] - 2026-09-09
 
 ### 新增

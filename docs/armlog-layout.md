@@ -43,9 +43,17 @@
 
 ## 推荐操作顺序
 
-1. 解压 rar（若有）得到 `*_armlog`
-2. 用 **ArmLogel / Logel** 打开该目录或 `.logel`，等待解析结束
-3. 确认出现 `*_pb\traceview.dat` 与 `traceview.pbs`
-4. 再运行 `logel2txt.exe` 或 `python logel2txt.py`（需要绝对 UE Time 时加 `--ue-base`）
+**一条命令（推荐，需本机 Logel_R9.21.1403）：**
 
-更细的「为何必须先开 Logel、行数对不齐」见 [troubleshooting.md](troubleshooting.md)。
+```bat
+logel2txt.exe playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569
+```
+
+**或分步：**
+
+1. 解压 rar（若有）得到 `*_armlog`
+2. 用 **ArmLogel / Logel** 打开该目录或 `.logel`，等待解析结束（或 CLI `-f -q -w hide`）
+3. 确认出现 `*_pb\traceview.dat` 与 `traceview.pbs`
+4. 再运行 `logel2txt.exe` / `python logel2txt.py`（需要绝对 UE Time 时加 `--ue-base`）
+
+更细的「为何必须先开 Logel、行数对不齐、版本约束」见 [troubleshooting.md](troubleshooting.md)。

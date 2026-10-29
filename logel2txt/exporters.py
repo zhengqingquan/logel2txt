@@ -49,7 +49,8 @@ def export_from_traceview(
             content = ""
         else:
             raw = dat[stroff : stroff + strlen]
-            content = raw.split(b"\0", 1)[0].decode("ascii", errors="replace")
+            # latin-1 保留 0xFF 等字节，与 Logel Export Trace 一致（勿用 utf-8 replace→U+FFFD）
+            content = raw.split(b"\0", 1)[0].decode("latin-1", errors="replace")
         lines.append(
             format_line(sn, sub, tick_ms, core, content, "", ue_base_ms)
         )
@@ -106,10 +107,10 @@ def export_from_logel_raw(logel_path: Path, ue_base_ms: int) -> List[str]:
 def write_lines(path: Path, lines: Iterable[str]) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        # 与 Logel Export Trace 一致：CRLF 换行
+        # 与 Logel Export Trace 一致：CRLF；latin-1 写出以保留 Content 中的 0xFF 等字节
         text = "\r\n".join(lines)
         if not text.endswith("\r\n"):
             text += "\r\n"
-        path.write_bytes(text.encode("utf-8"))
+        path.write_bytes(text.encode("latin-1", errors="replace"))
     except OSError as e:
         raise OSError(f"failed to write {path}: {e}") from e

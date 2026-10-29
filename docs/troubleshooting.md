@@ -10,9 +10,19 @@
 
 | 做法 | 结果 |
 |------|------|
-| Logel 打开一次 → 生成 `*_pb\traceview.*` → logel2txt 导出 | 可与 Export Trace **对齐**（含逐字节一致） |
+| **`logel2txt playback`**（推荐 R9.21）→ `*_pb` → 导出 | 可与 Export Trace **对齐**；不必手点 GUI |
+| GUI 打开一次 → 生成 `*_pb\traceview.*` → logel2txt 导出 | 同样可对齐 |
 | 只解压 rar / 只拿 `.logel` 就导出 | 仅明文抽取，常见只覆盖约三成条目 |
 | 自行硬调 Logel DLL 做同等导出 | 脆、难维护、需版本匹配；**不建议** |
+
+### Logel 版本注意（CLI PBS）
+
+| 版本 | `Logel.exe -f x.logel -q -w hide` 生成的 `traceview.pbs` |
+|------|----------------------------------------------------------|
+| **R9.21.1403** | 与 GUI 一致（约 44B×条数），logel2txt 可完整导出 |
+| R9.25 / R9.26 | PBS 更大、字段布局不同；logel2txt 会出现空 Content / 行数暴涨 |
+
+完整链路：`logel2txt playback ...`（默认指向 R9.21），或 GUI 打开后再 `logel2txt`。PBS 体积异常大（约 >30MB）时 stderr 会 `[WARN]`。回放 exit 非 0 但已写出 `traceview.*` 时仍继续导出。
 
 ## README 能力表展开
 
