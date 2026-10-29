@@ -15,15 +15,21 @@
 ```bat
 python logel2txt.py playback "D:\work\logs\xxx.logel" -o out.txt --ue-base 14:35:27.569 --logel "D:\path\to\Logel_R9.21.x\Bin\Logel.exe"
 python logel2txt.py playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
-logel2txt.exe playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
+python logel2txt.py playback "D:\work\logs\xxx_armlog.rar" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool" --7z "D:\path\to\7z.exe"
+logel2txt.exe playback "D:\work\logs\xxx_armlog.zip" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
 ```
 
 也可用环境变量：`LOGEL_EXE` / `LOGEL_HOME`（单个安装）或 `LOGEL_ROOT`（扫描其下 `Logel_R*\Bin\Logel.exe`，优先 R9.21）。**R9.25 / R9.26 的 CLI PBS 布局不兼容**，会拒绝并提示改用 R9.21。
+
+压缩包：支持 `.zip` / `.rar` / `.7z`，解压到同名旁路目录（已有 `.logel` 则复用）。`.zip` 用标准库；`.rar`/`.7z` 须 `--7z` 或 `SEVEN_ZIP` / `7Z_EXE` / PATH 中的 `7z`（无内置默认路径）。
 
 | `playback` 额外参数 | 说明 |
 |------|------|
 | `--logel` | Logel.exe 或安装目录（推荐 R9.21.x） |
 | `--logel-root` | 工具根目录，扫描 `Logel_R*` 并优先 R9.21 |
+| `--7z` | 7z.exe（`.rar`/`.7z` 需要） |
+| `--extract-to` | 解压目标目录（默认：压缩包旁同名文件夹） |
+| `--force-extract` | 强制重新解压 |
 | `--no-hide` | 回放时显示 Logel 窗口 |
 | `--skip-playback` | 跳过回放，假定已有 `*_pb` |
 

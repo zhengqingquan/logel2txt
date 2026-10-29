@@ -47,11 +47,12 @@
 
 ```bat
 logel2txt.exe playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
+logel2txt.exe playback "D:\work\logs\xxx_armlog.rar" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool" --7z "D:\path\to\7z.exe"
 ```
 
 **或分步：**
 
-1. 解压 rar（若有）得到 `*_armlog`
+1. 解压 rar（若有）得到 `*_armlog`（也可让 `playback` 直接吃压缩包自动解压）
 2. 用 **ArmLogel / Logel** 打开该目录或 `.logel`，等待解析结束（或 CLI `-f -q -w hide`）
 3. 确认出现 `*_pb\traceview.dat` 与 `traceview.pbs`
 4. 再运行 `logel2txt.exe` / `python logel2txt.py`（需要绝对 UE Time 时加 `--ue-base`）

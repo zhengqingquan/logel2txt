@@ -8,6 +8,7 @@
 
 - `logel2txt playback`：Logel 命令行回放生成 `*_pb` 后导出；支持 `--logel` / `--no-hide` / `--skip-playback`。
 - `logel2txt/playback.py`：回放逻辑；须 `--logel` / `LOGEL_EXE` 或 `--logel-root` / `LOGEL_ROOT`（无内置默认路径）；在 root 下优先 R9.21；R9.25/R9.26 CLI 不兼容时拒绝并提示。
+- 支持直接输入 `.zip` / `.rar` / `.7z`（`logel2txt/archive.py`）；`.zip` 用标准库，`.rar`/`.7z` 需 `--7z` 或 `SEVEN_ZIP`/`7Z_EXE`/PATH；可用 `--extract-to` 指定解压目录。
 
 ### 修复
 

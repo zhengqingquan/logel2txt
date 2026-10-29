@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from logel2txt import __version__
+from logel2txt.archive import ArchiveError, prepare_input
 from logel2txt.discover import default_output_path, resolve_inputs
 from logel2txt.exporters import (
     export_from_logel_raw,
@@ -155,7 +156,10 @@ def export_main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument(
         "input",
         type=Path,
-        help="armlog directory, .logel, or a directory containing traceview.dat/pbs",
+        help=(
+            "armlog directory, .logel, .zip/.rar/.7z, "
+            "or a directory containing traceview.dat/pbs"
+        ),
     )
     ap.add_argument(
         "-o",
@@ -179,9 +183,37 @@ def export_main(argv: Optional[List[str]] = None) -> int:
         default="txt",
         help="default extension when -o is omitted (default: txt)",
     )
+    ap.add_argument(
+        "--7z",
+        dest="seven_zip",
+        type=Path,
+        default=None,
+        help="7z.exe for .rar/.7z (or SEVEN_ZIP / 7Z_EXE / PATH)",
+    )
+    ap.add_argument(
+        "--extract-to",
+        type=Path,
+        default=None,
+        help="directory to extract archive into (default: <archive_stem> beside it)",
+    )
+    ap.add_argument(
+        "--force-extract",
+        action="store_true",
+        help="re-extract archive even if extract dir already has .logel",
+    )
     args = ap.parse_args(argv)
+    try:
+        input_path = prepare_input(
+            args.input,
+            seven_zip=args.seven_zip,
+            extract_to=args.extract_to,
+            force_extract=args.force_extract,
+        )
+    except ArchiveError as e:
+        _err(str(e))
+        return 1
     return run_export(
-        args.input,
+        input_path,
         output=args.output,
         ue_base_ms=args.ue_base,
         ext=args.ext,
@@ -201,7 +233,7 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument(
         "input",
         type=Path,
-        help="armlog directory or .logel file",
+        help="armlog directory, .logel, or .zip/.rar/.7z archive",
     )
     ap.add_argument(
         "-o",
@@ -232,6 +264,24 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
         ),
     )
     ap.add_argument(
+        "--7z",
+        dest="seven_zip",
+        type=Path,
+        default=None,
+        help="7z.exe for .rar/.7z (or SEVEN_ZIP / 7Z_EXE / PATH)",
+    )
+    ap.add_argument(
+        "--extract-to",
+        type=Path,
+        default=None,
+        help="directory to extract archive into (default: <archive_stem> beside it)",
+    )
+    ap.add_argument(
+        "--force-extract",
+        action="store_true",
+        help="re-extract archive even if extract dir already has .logel",
+    )
+    ap.add_argument(
         "--no-hide",
         action="store_true",
         help="show Logel window during playback",
@@ -244,7 +294,16 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
     args = ap.parse_args(argv)
 
     try:
-        logel_file = resolve_logel_file(args.input)
+        input_path = prepare_input(
+            args.input,
+            seven_zip=args.seven_zip,
+            extract_to=args.extract_to,
+            force_extract=args.force_extract,
+        )
+        logel_file = resolve_logel_file(input_path)
+    except ArchiveError as e:
+        _err(str(e))
+        return 1
     except FileNotFoundError as e:
         _err(str(e))
         return 1
