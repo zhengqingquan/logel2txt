@@ -17,12 +17,12 @@
 
 ### Logel 版本注意（CLI PBS）
 
-| 版本 | `Logel.exe -f x.logel -q -w hide` 生成的 `traceview.pbs` |
-|------|----------------------------------------------------------|
-| **R9.21.1403** | 与 GUI 一致（约 44B×条数），logel2txt 可完整导出 |
-| R9.25 / R9.26 | PBS 更大、字段布局不同；logel2txt 会出现空 Content / 行数暴涨 |
+| 版本（例） | `Logel.exe -f -q -w hide` → `traceview.pbs` | `playback` |
+|------|-----------------------------------------------|------------|
+| **R9.21.x** | 与 GUI 一致（约 44B×条数） | **可用**（`--logel` / `--logel-root` 优先选它） |
+| R9.25 / R9.26 | PBS 更大、字段布局不同 | **拒绝**，提示改用 R9.21 或 GUI 后再导出 |
 
-完整链路：`logel2txt playback ...`（默认指向 R9.21），或 GUI 打开后再 `logel2txt`。PBS 体积异常大（约 >30MB）时 stderr 会 `[WARN]`。回放 exit 非 0 但已写出 `traceview.*` 时仍继续导出。
+须通过 `--logel` / `LOGEL_EXE` 或 `--logel-root` / `LOGEL_ROOT` 指定路径（无内置默认）。完整链路：`logel2txt playback ...`，或任意版本 **GUI** 打开生成 `*_pb` 后再普通导出。回放后若 PBS 异常大（约 >30MB）也会报错退出。回放 exit 非 0 但已写出兼容 `traceview.*` 时仍继续导出。
 
 ## README 能力表展开
 

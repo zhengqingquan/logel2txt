@@ -13,9 +13,14 @@ from unittest.mock import MagicMock, patch
 from logel2txt.cli import main
 from logel2txt.exporters import PBS_HEADER_SIZE, PBS_MAGIC, PBS_REC_SIZE
 from logel2txt.playback import (
-    DEFAULT_LOGEL,
+    IncompatibleLogelError,
+    LogelNotConfiguredError,
+    check_cli_compatible,
+    cli_pbs_status,
     expect_pb_dir,
     find_logel,
+    list_logel_under_root,
+    parse_logel_version,
     resolve_logel_file,
     run_logel_playback,
 )
@@ -27,6 +32,14 @@ def _write_traceview(pb_dir: Path, dat_size: int = 64) -> None:
     (pb_dir / "traceview.pbs").write_bytes(
         PBS_MAGIC + b"\0" * (PBS_HEADER_SIZE + PBS_REC_SIZE - 4)
     )
+
+
+def _fake_install(root: Path, name: str) -> Path:
+    home = root / name
+    exe = home / "Bin" / "Logel.exe"
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    exe.write_bytes(b"mz")
+    return exe
 
 
 class TestPlaybackHelpers(unittest.TestCase):
@@ -49,19 +62,78 @@ class TestPlaybackHelpers(unittest.TestCase):
             Path(r"D:\work\logs\sample_pb").resolve(),
         )
 
-    def test_find_logel_default(self):
+    def test_parse_and_cli_status(self):
+        p21 = Path(r"X:\tools\Logel_R9.21.1403\Bin\Logel.exe")
+        p25 = Path(r"X:\tools\Logel_R9.25.1801\Bin\Logel.exe")
+        p26 = Path(r"X:\tools\Logel_R9.26.3802\Bin\Logel.exe")
+        self.assertEqual(parse_logel_version(p21), (9, 21, 1403))
+        self.assertEqual(cli_pbs_status(p21), "compatible")
+        self.assertEqual(cli_pbs_status(p25), "incompatible")
+        self.assertEqual(cli_pbs_status(p26), "incompatible")
+        check_cli_compatible(p21)
+        with self.assertRaises(IncompatibleLogelError) as cm:
+            check_cli_compatible(p26)
+        self.assertIn("R9.26", str(cm.exception))
+        self.assertIn("R9.21", str(cm.exception))
+
+    def test_find_logel_requires_config(self):
         with patch.dict("os.environ", {}, clear=False):
             import os
 
             os.environ.pop("LOGEL_EXE", None)
             os.environ.pop("LOGEL_HOME", None)
-            self.assertEqual(find_logel(None), DEFAULT_LOGEL)
+            os.environ.pop("LOGEL_ROOT", None)
+            with self.assertRaises(LogelNotConfiguredError) as cm:
+                find_logel(None)
+            self.assertIn("--logel", str(cm.exception))
 
-    def test_find_logel_env_dir(self):
+    def test_find_logel_root_prefers_r921(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _fake_install(root, "Logel_R9.26.3802")
+            exe21 = _fake_install(root, "Logel_R9.21.1403")
+            _fake_install(root, "Logel_R9.25.1801")
+            with patch.dict("os.environ", {}, clear=False):
+                import os
+
+                os.environ.pop("LOGEL_EXE", None)
+                os.environ.pop("LOGEL_HOME", None)
+                os.environ.pop("LOGEL_ROOT", None)
+                self.assertEqual(find_logel(None, root=root), exe21.resolve())
+
+    def test_list_logel_under_root(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            e1 = _fake_install(root, "Logel_R9.21.1403")
+            e2 = _fake_install(root, "Logel_R9.26.3802")
+            found = list_logel_under_root(root)
+            self.assertEqual(set(found), {e1.resolve(), e2.resolve()})
+
+    def test_find_logel_root_only_incompatible(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _fake_install(root, "Logel_R9.25.1801")
+            with self.assertRaises(IncompatibleLogelError) as cm:
+                find_logel(None, root=root)
+            self.assertIn("R9.21", str(cm.exception))
+
+    def test_find_logel_env_dir_unknown_warns(self):
         with tempfile.TemporaryDirectory() as td:
             home = Path(td)
-            with patch.dict("os.environ", {"LOGEL_HOME": str(home)}):
-                self.assertEqual(find_logel(None), home / "Logel.exe")
+            (home / "Logel.exe").write_bytes(b"mz")
+            err = io.StringIO()
+            with patch.dict("os.environ", {"LOGEL_HOME": str(home)}, clear=False):
+                import os
+
+                os.environ.pop("LOGEL_EXE", None)
+                with redirect_stderr(err):
+                    self.assertEqual(find_logel(None), home / "Logel.exe")
+            self.assertIn("[WARN]", err.getvalue())
+
+    def test_find_logel_explicit_r926_refused(self):
+        p = Path(r"X:\tools\Logel_R9.26.3802\Bin\Logel.exe")
+        with self.assertRaises(IncompatibleLogelError):
+            find_logel(p)
 
     def test_run_logel_playback_builds_args(self):
         with tempfile.TemporaryDirectory() as td:
@@ -90,7 +162,29 @@ class TestPlaybackCli(unittest.TestCase):
             with self.assertRaises(SystemExit) as cm:
                 main(["playback", "-h"])
         self.assertEqual(cm.exception.code, 0)
-        self.assertIn("playback", out.getvalue().lower())
+        text = out.getvalue().lower()
+        self.assertIn("playback", text)
+        self.assertIn("logel-root", text)
+
+    def test_missing_config(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "a.logel").write_bytes(b"xx")
+            out = root / "out.txt"
+            err = io.StringIO()
+            with patch.dict("os.environ", {}, clear=False):
+                import os
+
+                os.environ.pop("LOGEL_EXE", None)
+                os.environ.pop("LOGEL_HOME", None)
+                os.environ.pop("LOGEL_ROOT", None)
+                with redirect_stderr(err), redirect_stdout(io.StringIO()):
+                    code = main(
+                        ["playback", str(root), "-o", str(out)]
+                    )
+            self.assertEqual(code, 1)
+            self.assertIn("[ERROR]", err.getvalue())
+            self.assertIn("--logel", err.getvalue())
 
     def test_missing_logel_exe(self):
         with tempfile.TemporaryDirectory() as td:
@@ -113,6 +207,30 @@ class TestPlaybackCli(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn("[ERROR]", err.getvalue())
             self.assertIn("Logel.exe not found", err.getvalue())
+
+    def test_playback_refuses_r926(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "a.logel").write_bytes(b"xx")
+            out = root / "out.txt"
+            bad = Path(r"X:\tools\Logel_R9.26.3802\Bin\Logel.exe")
+            err = io.StringIO()
+            with redirect_stderr(err), redirect_stdout(io.StringIO()):
+                code = main(
+                    [
+                        "playback",
+                        str(root),
+                        "-o",
+                        str(out),
+                        "--logel",
+                        str(bad),
+                    ]
+                )
+            self.assertEqual(code, 1)
+            err_s = err.getvalue()
+            self.assertIn("[ERROR]", err_s)
+            self.assertIn("cannot parse", err_s.lower())
+            self.assertIn("R9.21", err_s)
 
     def test_playback_missing_pb_after_run(self):
         with tempfile.TemporaryDirectory() as td:
@@ -159,6 +277,38 @@ class TestPlaybackCli(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertTrue(out.is_file())
             self.assertIn("[DONE]", buf.getvalue())
+
+    def test_logel_root_cli(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tools = root / "tools"
+            exe = _fake_install(tools, "Logel_R9.21.1403")
+            (root / "a.logel").write_bytes(b"xx")
+            out = root / "out.txt"
+            pb = root / "a_pb"
+            mock_run = MagicMock(
+                side_effect=lambda *a, **k: (
+                    _write_traceview(pb),
+                    MagicMock(returncode=0),
+                )[1]
+            )
+            buf = io.StringIO()
+            err = io.StringIO()
+            with patch("logel2txt.playback.subprocess.run", mock_run):
+                with redirect_stderr(err), redirect_stdout(buf):
+                    code = main(
+                        [
+                            "playback",
+                            str(root),
+                            "-o",
+                            str(out),
+                            "--logel-root",
+                            str(tools),
+                        ]
+                    )
+            self.assertEqual(code, 0)
+            args = mock_run.call_args[0][0]
+            self.assertEqual(args[0], str(exe.resolve()))
 
 
 if __name__ == "__main__":

@@ -6,8 +6,8 @@
 
 ### 新增
 
-- `logel2txt playback`：Logel 命令行回放生成 `*_pb` 后导出（默认 `Logel_R9.21.1403`）；支持 `--logel` / `--no-hide` / `--skip-playback`。
-- `logel2txt/playback.py`：回放逻辑模块（`logel2txt playback` 子命令）。
+- `logel2txt playback`：Logel 命令行回放生成 `*_pb` 后导出；支持 `--logel` / `--no-hide` / `--skip-playback`。
+- `logel2txt/playback.py`：回放逻辑；须 `--logel` / `LOGEL_EXE` 或 `--logel-root` / `LOGEL_ROOT`（无内置默认路径）；在 root 下优先 R9.21；R9.25/R9.26 CLI 不兼容时拒绝并提示。
 
 ### 修复
 

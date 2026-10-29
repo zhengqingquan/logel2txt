@@ -10,19 +10,20 @@
 
 ### 一条命令（推荐，无需手动开 GUI）
 
-用 **Logel_R9.21.1403** 命令行回放生成 `*_pb`，再导出文本（R9.26.x 的 CLI PBS 布局不同，会对不齐）：
+用 **Logel_R9.21** 命令行回放生成 `*_pb`，再导出文本（**须指定** Logel，无内置默认路径）：
 
 ```bat
-python logel2txt.py playback "D:\work\logs\xxx.logel" -o out.txt --ue-base 14:35:27.569
-python logel2txt.py playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569
-logel2txt.exe playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569
+python logel2txt.py playback "D:\work\logs\xxx.logel" -o out.txt --ue-base 14:35:27.569 --logel "D:\path\to\Logel_R9.21.x\Bin\Logel.exe"
+python logel2txt.py playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
+logel2txt.exe playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
 ```
 
-默认 Logel：`D:\Unisoc_Tool\Logel_R9.21.1403\Bin\Logel.exe`（可用 `--logel` 或环境变量 `LOGEL_EXE` / `LOGEL_HOME` 覆盖）。
+也可用环境变量：`LOGEL_EXE` / `LOGEL_HOME`（单个安装）或 `LOGEL_ROOT`（扫描其下 `Logel_R*\Bin\Logel.exe`，优先 R9.21）。**R9.25 / R9.26 的 CLI PBS 布局不兼容**，会拒绝并提示改用 R9.21。
 
 | `playback` 额外参数 | 说明 |
 |------|------|
-| `--logel` | Logel.exe 路径 |
+| `--logel` | Logel.exe 或安装目录（推荐 R9.21.x） |
+| `--logel-root` | 工具根目录，扫描 `Logel_R*` 并优先 R9.21 |
 | `--no-hide` | 回放时显示 Logel 窗口 |
 | `--skip-playback` | 跳过回放，假定已有 `*_pb` |
 

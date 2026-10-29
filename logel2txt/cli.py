@@ -17,7 +17,8 @@ from logel2txt.exporters import (
 )
 from logel2txt.format import parse_hms_ms
 from logel2txt.playback import (
-    DEFAULT_LOGEL,
+    IncompatibleLogelError,
+    LogelNotConfiguredError,
     ensure_playback_cache,
     resolve_logel_file,
 )
@@ -192,7 +193,9 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
         prog="logel2txt playback",
         description=(
             "Logel CLI playback -> *_pb/traceview -> export "
-            "(Export Trace text). Prefer Logel_R9.21.1403."
+            "(Export Trace text). Requires --logel / LOGEL_EXE / "
+            "--logel-root / LOGEL_ROOT (no built-in default). "
+            "Refuses R9.25/R9.26 CLI (incompatible PBS)."
         ),
     )
     ap.add_argument(
@@ -217,7 +220,16 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
         "--logel",
         type=Path,
         default=None,
-        help=f"Logel.exe path (default: {DEFAULT_LOGEL} or LOGEL_EXE)",
+        help="Logel.exe or install dir (prefer R9.21.x); or set LOGEL_EXE",
+    )
+    ap.add_argument(
+        "--logel-root",
+        type=Path,
+        default=None,
+        help=(
+            "scan ROOT\\Logel_R*\\Bin\\Logel.exe and prefer R9.21; "
+            "or set LOGEL_ROOT"
+        ),
     )
     ap.add_argument(
         "--no-hide",
@@ -242,15 +254,18 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
             ensure_playback_cache(
                 logel_file,
                 logel=args.logel,
+                logel_root=args.logel_root,
                 hide=not args.no_hide,
             )
-        except FileNotFoundError as e:
+        except IncompatibleLogelError as e:
             _err(str(e))
-            # missing Logel.exe -> 1; missing pb after playback -> 2
+            return 1
+        except (LogelNotConfiguredError, FileNotFoundError) as e:
+            _err(str(e))
             msg = str(e).lower()
-            if "logel.exe not found" in msg:
-                return 1
-            return 2
+            if "missing" in msg and "traceview" in msg:
+                return 2
+            return 1
 
     return run_export(
         logel_file.parent,
