@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -51,7 +52,22 @@ def sibling_traceview_pairs(primary_dat: Path) -> List[Tuple[Path, Path]]:
 
 def find_logel(root: Path) -> Optional[Path]:
     logs = sorted(root.rglob("*.logel"), key=lambda p: -p.stat().st_size)
-    return logs[0] if logs else None
+    if not logs:
+        return None
+    chosen = logs[0]
+    if len(logs) > 1:
+        print(
+            f"[WARN] multiple .logel under {root} ({len(logs)}); "
+            f"using largest {chosen}",
+            file=sys.stderr,
+        )
+        for p in logs[1:]:
+            print(f"       also: {p}", file=sys.stderr)
+        print(
+            "       pass a specific .logel or *_armlog directory to select another",
+            file=sys.stderr,
+        )
+    return chosen
 
 
 def resolve_inputs(path: Path) -> Tuple[str, object]:

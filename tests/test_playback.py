@@ -55,6 +55,27 @@ class TestPlaybackHelpers(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 resolve_logel_file(Path(td))
 
+    def test_resolve_logel_file_multiple_warns(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            a = root / "pkg_a"
+            b = root / "pkg_b"
+            a.mkdir()
+            b.mkdir()
+            la = a / "a.logel"
+            lb = b / "b.logel"
+            la.write_bytes(b"xx")
+            lb.write_bytes(b"yy")
+            err = io.StringIO()
+            with redirect_stderr(err):
+                chosen = resolve_logel_file(root)
+            # sorted by path name: pkg_a/a.logel first
+            self.assertEqual(chosen, la.resolve())
+            err_s = err.getvalue()
+            self.assertIn("[WARN]", err_s)
+            self.assertIn("multiple .logel", err_s)
+            self.assertIn(str(lb), err_s)
+
     def test_expect_pb_dir(self):
         p = Path(r"D:\work\logs\sample.logel")
         self.assertEqual(

@@ -35,6 +35,7 @@
 | 与参考 Export 差「大约等于行数」的字节 | 旧结果可能是 LF，本工具为 **CRLF** | 比内容而非仅比文件大小 |
 | TickCount 对、UE Time 对不上 | 未设 `--ue-base` 时 UE 从 `0:00:00.000` 起算 | 从 Export 首行抄 `UE Time`，例如 `--ue-base 17:15:12.275` |
 | 与 Export 仅少数 Content 大数不同（后段全 0） | CLI `*_pb` 偶发 double 零填充 | 同包若有非 `_pb` traceview，导出会自动用更完整串补全；仅 CLI 缓存时无法凭空恢复精度 |
+| 目录下多个 `.logel` / 多个 `*_armlog` | 只处理其中一个 | stderr `[WARN] multiple .logel`；请改为传入具体 `.logel` 或单个 `*_armlog` 目录 |
 | 同一包第一次导出少几百行，开过 Logel 后又齐了 | 当时还没有（或没用到）`*_pb`，工具读了旧 `traceview` | 确认日志里打印的是 `*_pb` 目录名；非 `*_pb` 时 stderr 会有 `[WARN]` |
 | 控制台只有 `[DONE]`、管道里看不到告警 | `[WARN]`/`[ERROR]` 在 **stderr**，成功摘要在 stdout | 重定向时保留 stderr，或 `2>&1` |
 | `lines: 0` 且退出码 2 | 未导出到任何数据行（仅表头） | 检查输入；用 Logel 生成 `traceview` 后再导 |

@@ -237,17 +237,33 @@ def find_logel(
     )
 
 
+def _warn_multiple_logel(root: Path, cands: List[Path], chosen: Path) -> None:
+    others = [p for p in cands if p.resolve() != chosen.resolve()]
+    print(
+        f"[WARN] multiple .logel under {root} ({len(cands)}); "
+        f"using {chosen}",
+        file=sys.stderr,
+    )
+    for p in others:
+        print(f"       also: {p}", file=sys.stderr)
+    print(
+        "       pass a specific .logel or *_armlog directory to select another",
+        file=sys.stderr,
+    )
+
+
 def resolve_logel_file(input_path: Path) -> Path:
     input_path = input_path.expanduser().resolve()
     if input_path.is_file() and input_path.suffix.lower() == ".logel":
         return input_path
     if input_path.is_dir():
         top = sorted(input_path.glob("*.logel"))
-        if top:
-            return top[0].resolve()
-        cands = sorted(input_path.glob("*/*.logel"))
+        cands = top if top else sorted(input_path.glob("*/*.logel"))
         if cands:
-            return cands[0].resolve()
+            chosen = cands[0].resolve()
+            if len(cands) > 1:
+                _warn_multiple_logel(input_path, cands, chosen)
+            return chosen
     raise FileNotFoundError(f"no .logel found under {input_path}")
 
 

@@ -56,13 +56,20 @@ class TestDiscover(unittest.TestCase):
             self.assertTrue(pbs.is_file())
 
     def test_find_logel_largest(self):
+        import io
+        from contextlib import redirect_stderr
+
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             small = root / "small.logel"
             big = root / "big.logel"
             small.write_bytes(b"a")
             big.write_bytes(b"bbbb")
-            self.assertEqual(find_logel(root), big)
+            err = io.StringIO()
+            with redirect_stderr(err):
+                self.assertEqual(find_logel(root), big)
+            self.assertIn("multiple .logel", err.getvalue())
+            self.assertIn(str(small), err.getvalue())
 
     def test_default_output_traceview(self):
         with tempfile.TemporaryDirectory() as td:
