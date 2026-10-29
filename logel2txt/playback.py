@@ -3,28 +3,33 @@
 
 须指定 Logel（无内置默认路径）：
   - --logel / LOGEL_EXE / LOGEL_HOME：Logel.exe 或安装目录
-  - --logel-root / LOGEL_ROOT：在目录下扫描 Logel_R*\\Bin\\Logel.exe，优先 R9.21
+  - --logel-root / LOGEL_ROOT：扫描 Logel_R* 与 Logel\\Bin\\Logel.exe，优先 R9.21
 
 CLI 回放写出的 PBS：
-  - Logel_R9.21.x：与 GUI 一致（约 44B/条），logel2txt 可完整导出
-  - Logel_R9.25 / R9.26：同参数 PBS 布局不同 → 拒绝并提示改用 R9.21
+  - R9.21 / R9.23：与 GUI 一致（约 44B/条），logel2txt 可完整导出
+    （R9.23 CLI 常在写完 *_pb 后 0xC0000005，只要 traceview 在仍继续）
+  - R9.25 / R9.26：同参数 PBS 布局不同 → 拒绝并提示改用 R9.21/R9.23
 """
 
 from __future__ import annotations
 
+import ctypes
 import os
 import re
 import subprocess
 import sys
 import time
+from ctypes import wintypes
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 PBS_SIZE_WARN = 30_000_000
 
 # (major, minor) — CLI PBS layout known-good for logel2txt
-_CLI_COMPAT_MINORS = {(9, 21)}
+_CLI_COMPAT_MINORS = {(9, 21), (9, 23)}
 _CLI_INCOMPAT_MINORS = {(9, 25), (9, 26)}
+# Prefer order when several compatible builds exist under --logel-root
+_CLI_PREF_ORDER = (21, 23)
 
 _VERSION_RE = re.compile(r"[Rr]?9[._](\d+)[._](\d+)", re.IGNORECASE)
 
@@ -37,13 +42,52 @@ class LogelNotConfiguredError(FileNotFoundError):
     """No --logel / env / --logel-root was provided."""
 
 
-def parse_logel_version(path: Path) -> Optional[Tuple[int, int, int]]:
-    """From path like .../Logel_R9.21.1403/... → (9, 21, 1403)."""
-    m = _VERSION_RE.search(str(path))
-    if not m:
+def _version_from_file_info(exe: Path) -> Optional[Tuple[int, int, int]]:
+    """Read PE FileVersion, e.g. 9.23.11.2 → (9, 23, 1102)."""
+    if sys.platform != "win32" or not exe.is_file():
         return None
-    minor, build = int(m.group(1)), int(m.group(2))
-    return (9, minor, build)
+    try:
+        path = str(exe)
+        size = ctypes.windll.version.GetFileVersionInfoSizeW(path, None)
+        if not size:
+            return None
+        buf = ctypes.create_string_buffer(size)
+        if not ctypes.windll.version.GetFileVersionInfoW(path, 0, size, buf):
+            return None
+        u = ctypes.c_void_p()
+        ln = wintypes.UINT()
+        if not ctypes.windll.version.VerQueryValueW(
+            buf, r"\VarFileInfo\Translation", ctypes.byref(u), ctypes.byref(ln)
+        ):
+            return None
+        trans = ctypes.cast(u, ctypes.POINTER(ctypes.c_ushort))
+        lang, codepage = int(trans[0]), int(trans[1])
+        for key in ("FileVersion", "ProductVersion"):
+            sub = rf"\StringFileInfo\{lang:04x}{codepage:04x}\{key}"
+            p = ctypes.c_void_p()
+            if not ctypes.windll.version.VerQueryValueW(
+                buf, sub, ctypes.byref(p), ctypes.byref(ln)
+            ):
+                continue
+            text = ctypes.wstring_at(p).replace(",", ".").replace(" ", "")
+            parts = [int(x) for x in text.split(".") if x.isdigit()]
+            if len(parts) >= 4 and parts[0] == 9:
+                return (9, parts[1], parts[2] * 100 + parts[3])
+            if len(parts) >= 3 and parts[0] == 9:
+                return (9, parts[1], parts[2])
+    except (AttributeError, OSError, ValueError):
+        return None
+    return None
+
+
+def parse_logel_version(path: Path) -> Optional[Tuple[int, int, int]]:
+    """From path .../Logel_R9.21.1403/... or PE FileVersion on Logel.exe."""
+    m = _VERSION_RE.search(str(path))
+    if m:
+        minor, build = int(m.group(1)), int(m.group(2))
+        return (9, minor, build)
+    exe = path if path.suffix.lower() == ".exe" else _normalize_exe(path)
+    return _version_from_file_info(exe)
 
 
 def version_label(ver: Optional[Tuple[int, int, int]]) -> str:
@@ -80,7 +124,7 @@ def _normalize_exe(path: Path) -> Path:
 
 
 def list_logel_under_root(root: Path) -> List[Path]:
-    """Scan <root>/Logel_R*/Bin/Logel.exe (and <root>/Bin/Logel.exe)."""
+    """Scan <root>/Logel_R*/Bin、Logel/Bin、以及 <root>/Bin 下的 Logel.exe。"""
     root = root.expanduser()
     seen = set()
     out: List[Path] = []
@@ -103,6 +147,10 @@ def list_logel_under_root(root: Path) -> List[Path]:
     if bin_exe.is_file():
         _add(bin_exe.resolve())
 
+    plain = root / "Logel"
+    if plain.is_dir():
+        _add(_exe_under_home(plain))
+
     for home in sorted(root.glob("Logel_R*")):
         _add(_exe_under_home(home))
     return out
@@ -111,9 +159,9 @@ def list_logel_under_root(root: Path) -> List[Path]:
 def config_hint(root: Optional[Path] = None) -> str:
     lines = [
         "Specify Logel for playback (no built-in default path):",
-        "  --logel PATH          Logel.exe or install dir (prefer R9.21.x)",
+        "  --logel PATH          Logel.exe or install dir (prefer R9.21/R9.23)",
         "  LOGEL_EXE / LOGEL_HOME",
-        "  --logel-root DIR      scan DIR\\Logel_R*\\Bin\\Logel.exe (prefer R9.21)",
+        "  --logel-root DIR      scan Logel_R* / Logel\\Bin (prefer R9.21)",
         "  LOGEL_ROOT",
     ]
     if root is not None:
@@ -130,8 +178,8 @@ def config_hint(root: Optional[Path] = None) -> str:
                 }.get(st, "?")
                 lines.append(f"  [{mark}] {ver}: {exe}")
             lines.append(
-                "Use R9.21.x for CLI playback. R9.25 / R9.26 CLI PBS differs — "
-                "GUI-open then export, or --logel to R9.21."
+                "Use R9.21/R9.23 for CLI playback. R9.25 / R9.26 CLI PBS differs — "
+                "GUI-open then export, or --logel to a compatible build."
             )
         else:
             lines.append(f"No Logel.exe found under {root}.")
@@ -150,9 +198,9 @@ def format_install_hint(exes: Optional[List[Path]] = None) -> str:
         )
         lines.append(f"  [{mark}] {ver}: {exe}")
     lines.append(
-        "For `logel2txt playback`, use R9.21.x (compatible). "
+        "For `logel2txt playback`, use R9.21/R9.23 (compatible). "
         "R9.25 / R9.26 CLI PBS layout differs — open in GUI then export, "
-        "or point --logel to R9.21."
+        "or point --logel to a compatible build."
     )
     return "\n".join(lines)
 
@@ -171,7 +219,7 @@ def check_cli_compatible(
     if status == "unknown" and allow_unknown:
         print(
             f"[WARN] Logel version unknown from path ({logel}); "
-            "CLI PBS may not match logel2txt. Prefer Logel_R9.21.x.",
+            "CLI PBS may not match logel2txt. Prefer R9.21/R9.23.",
             file=sys.stderr,
         )
         return
@@ -186,12 +234,17 @@ def check_cli_compatible(
 def _pick_compatible(exes: List[Path]) -> Path:
     compatible = [e for e in exes if cli_pbs_status(e) == "compatible"]
     if compatible:
+        by_minor: dict = {}
         for e in compatible:
-            if "R9.21" in str(e):
-                return e
+            ver = parse_logel_version(e)
+            minor = ver[1] if ver else -1
+            by_minor.setdefault(minor, []).append(e)
+        for pref in _CLI_PREF_ORDER:
+            if pref in by_minor:
+                return by_minor[pref][0]
         return compatible[0]
     raise IncompatibleLogelError(
-        "No CLI-compatible Logel (R9.21.x) found among candidates.\n"
+        "No CLI-compatible Logel (R9.21/R9.23) found among candidates.\n"
         f"{format_install_hint(exes)}"
     )
 

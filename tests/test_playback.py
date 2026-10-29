@@ -85,13 +85,17 @@ class TestPlaybackHelpers(unittest.TestCase):
 
     def test_parse_and_cli_status(self):
         p21 = Path(r"X:\tools\Logel_R9.21.1403\Bin\Logel.exe")
+        p23 = Path(r"X:\tools\Logel_R9.23.1102\Bin\Logel.exe")
         p25 = Path(r"X:\tools\Logel_R9.25.1801\Bin\Logel.exe")
         p26 = Path(r"X:\tools\Logel_R9.26.3802\Bin\Logel.exe")
         self.assertEqual(parse_logel_version(p21), (9, 21, 1403))
+        self.assertEqual(parse_logel_version(p23), (9, 23, 1102))
         self.assertEqual(cli_pbs_status(p21), "compatible")
+        self.assertEqual(cli_pbs_status(p23), "compatible")
         self.assertEqual(cli_pbs_status(p25), "incompatible")
         self.assertEqual(cli_pbs_status(p26), "incompatible")
         check_cli_compatible(p21)
+        check_cli_compatible(p23)
         with self.assertRaises(IncompatibleLogelError) as cm:
             check_cli_compatible(p26)
         self.assertIn("R9.26", str(cm.exception))

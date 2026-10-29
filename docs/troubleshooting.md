@@ -10,7 +10,7 @@
 
 | 做法 | 结果 |
 |------|------|
-| **`logel2txt playback`**（推荐 R9.21）→ `*_pb` → 导出 | 可与 Export Trace **对齐**；不必手点 GUI |
+| **`logel2txt playback`**（推荐 R9.21 / R9.23）→ `*_pb` → 导出 | 可与 Export Trace **对齐**；不必手点 GUI |
 | GUI 打开一次 → 生成 `*_pb\traceview.*` → logel2txt 导出 | 同样可对齐 |
 | 只解压 rar / 只拿 `.logel` 就导出 | 仅明文抽取，常见只覆盖约三成条目 |
 | 自行硬调 Logel DLL 做同等导出 | 脆、难维护、需版本匹配；**不建议** |
@@ -19,8 +19,9 @@
 
 | 版本（例） | `Logel.exe -f -q -w hide` → `traceview.pbs` | `playback` |
 |------|-----------------------------------------------|------------|
-| **R9.21.x** | 与 GUI 一致（约 44B×条数） | **可用**（`--logel` / `--logel-root` 优先选它） |
-| R9.25 / R9.26 | PBS 更大、字段布局不同 | **拒绝**，提示改用 R9.21 或 GUI 后再导出 |
+| **R9.21.x** | 与 GUI 一致（约 44B×条数） | **可用**（`--logel-root` 优先选它） |
+| **R9.23.x**（如 `Logel` 目录 FileVersion 9.23.11.2） | PBS 同 R9.21；CLI 常写完后 `0xC0000005` | **可用**（有 `*_pb\\traceview` 仍继续导出） |
+| R9.25 / R9.26 | PBS 更大、字段布局不同 | **拒绝**，提示改用 R9.21/R9.23 或 GUI 后再导出 |
 
 须通过 `--logel` / `LOGEL_EXE` 或 `--logel-root` / `LOGEL_ROOT` 指定路径（无内置默认）。完整链路：`logel2txt playback ...`，或任意版本 **GUI** 打开生成 `*_pb` 后再普通导出。回放后若 PBS 异常大（约 >30MB）也会报错退出。回放 exit 非 0 但已写出兼容 `traceview.*` 时仍继续导出。
 

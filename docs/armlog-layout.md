@@ -43,7 +43,7 @@
 
 ## 推荐操作顺序
 
-**一条命令（推荐，需本机 Logel_R9.21；须指定路径）：**
+**一条命令（推荐，需本机 R9.21/R9.23 Logel；须指定路径）：**
 
 ```bat
 logel2txt.exe playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
