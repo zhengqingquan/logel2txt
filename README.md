@@ -30,6 +30,7 @@ logel2txt.exe playback "D:\work\logs\xxx_armlog.zip" -o out.txt --ue-base 14:35:
 | `--7z` | 7z.exe（`.rar`/`.7z` 需要） |
 | `--extract-to` | 解压目标目录（默认：压缩包旁同名文件夹） |
 | `--force-extract` | 强制重新解压 |
+| `--traceview` | 多份 `traceview` 缓存时指定目录名（如 `xxx_pb1`）或路径 |
 | `--no-hide` | 回放时显示 Logel 窗口 |
 | `--skip-playback` | 跳过回放，假定已有 `*_pb` |
 
@@ -49,6 +50,7 @@ python logel2txt.py "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
 | `-o` | 输出路径（默认写到输入旁 `.txt`） |
 | `--ue-base` | `HH:MM:SS.mmm`；省略则 UE Time 从 `0:00:00.000` 起 |
 | `--ext` | 未指定 `-o` 时扩展名：`txt`（默认）/ `trace` |
+| `--traceview` | 多份缓存时指定用哪份（目录名或路径） |
 | `-V` | 版本号 |
 
 成功摘要在 stdout；`[WARN]` / `[ERROR]` 在 **stderr**（非 `*_pb`、0 行、读写失败等会告警）。

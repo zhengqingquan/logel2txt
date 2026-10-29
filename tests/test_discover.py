@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 from logel2txt.discover import (
@@ -40,10 +42,35 @@ class TestDiscover(unittest.TestCase):
             root = Path(td)
             _touch_traceview(root / "sample_pb1", dat_size=500)
             _touch_traceview(root / "sample_pb", dat_size=50)
-            pair = find_traceview_pair(root)
+            err = io.StringIO()
+            with redirect_stderr(err):
+                pair = find_traceview_pair(root)
             self.assertIsNotNone(pair)
             dat, _ = pair
             self.assertEqual(dat.parent.name, "sample_pb")
+            self.assertIn("multiple traceview", err.getvalue())
+            self.assertIn("--traceview", err.getvalue())
+
+    def test_traceview_prefer_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _touch_traceview(root / "sample_pb", dat_size=50)
+            _touch_traceview(root / "sample_pb1", dat_size=500)
+            pair = find_traceview_pair(root, prefer="sample_pb1")
+            self.assertIsNotNone(pair)
+            self.assertEqual(pair[0].parent.name, "sample_pb1")
+            mode, payload = resolve_inputs(root, prefer_traceview="sample_pb1")
+            self.assertEqual(mode, "traceview")
+            self.assertEqual(payload[0].parent.name, "sample_pb1")
+
+    def test_traceview_prefer_missing(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _touch_traceview(root / "sample_pb")
+            with self.assertRaises(FileNotFoundError) as cm:
+                find_traceview_pair(root, prefer="no_such_pb")
+            self.assertIn("--traceview", str(cm.exception))
+            self.assertIn("sample_pb", str(cm.exception))
 
     def test_resolve_logel_only(self):
         with tempfile.TemporaryDirectory() as td:

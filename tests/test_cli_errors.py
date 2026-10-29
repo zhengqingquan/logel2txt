@@ -72,6 +72,35 @@ class TestCliErrorPaths(unittest.TestCase):
             self.assertIn("may be incomplete", err_s)
             self.assertIn(code, (0, 2))
 
+    def test_multiple_traceview_warns_and_traceview_flag(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _touch_traceview(root / "sample_pb", dat_size=40)
+            _touch_traceview(root / "sample_pb1", dat_size=80)
+            out = root / "out.txt"
+            err = io.StringIO()
+            with redirect_stderr(err), redirect_stdout(io.StringIO()):
+                code = main([str(root), "-o", str(out)])
+            self.assertIn(code, (0, 2))
+            err_s = err.getvalue()
+            self.assertIn("multiple traceview", err_s)
+            self.assertIn("sample_pb", err_s)
+            self.assertIn("--traceview", err_s)
+
+            out_buf = io.StringIO()
+            with redirect_stderr(io.StringIO()), redirect_stdout(out_buf):
+                code2 = main(
+                    [
+                        str(root),
+                        "-o",
+                        str(root / "out2.txt"),
+                        "--traceview",
+                        "sample_pb1",
+                    ]
+                )
+            self.assertIn(code2, (0, 2))
+            self.assertIn("Using traceview: sample_pb1", out_buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

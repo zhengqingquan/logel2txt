@@ -46,10 +46,13 @@ def run_export(
     output: Optional[Path] = None,
     ue_base_ms: Optional[int] = None,
     ext: str = "txt",
+    prefer_traceview: Optional[str] = None,
 ) -> int:
     """Export from an already-resolved input path. Shared by export and playback."""
     try:
-        mode, payload = resolve_inputs(input_path)
+        mode, payload = resolve_inputs(
+            input_path, prefer_traceview=prefer_traceview
+        )
     except FileNotFoundError as e:
         _err(str(e) if str(e) else f"input path not found: {input_path}")
         return 1
@@ -201,6 +204,15 @@ def export_main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="re-extract archive even if extract dir already has .logel",
     )
+    ap.add_argument(
+        "--traceview",
+        default=None,
+        metavar="NAME",
+        help=(
+            "which traceview cache to use when several exist: "
+            "cache dir name (e.g. xxx_pb1) or path to that folder"
+        ),
+    )
     args = ap.parse_args(argv)
     try:
         input_path = prepare_input(
@@ -217,6 +229,7 @@ def export_main(argv: Optional[List[str]] = None) -> int:
         output=args.output,
         ue_base_ms=args.ue_base,
         ext=args.ext,
+        prefer_traceview=args.traceview,
     )
 
 
@@ -291,6 +304,16 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="only export (assume *_pb already exists)",
     )
+    ap.add_argument(
+        "--traceview",
+        default=None,
+        metavar="NAME",
+        help=(
+            "which traceview cache to export when several exist: "
+            "cache dir name (e.g. xxx_pb1) or path; "
+            "with playback default remains the new *_pb"
+        ),
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -326,10 +349,16 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
                 return 2
             return 1
 
+    # After playback, default to the fresh *_pb unless user overrides.
+    prefer = args.traceview
+    if prefer is None and not args.skip_playback:
+        prefer = f"{logel_file.stem}_pb"
+
     return run_export(
         logel_file.parent,
         output=args.output,
         ue_base_ms=args.ue_base,
+        prefer_traceview=prefer,
     )
 
 

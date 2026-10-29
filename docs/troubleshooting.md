@@ -36,6 +36,7 @@
 | TickCount 对、UE Time 对不上 | 未设 `--ue-base` 时 UE 从 `0:00:00.000` 起算 | 从 Export 首行抄 `UE Time`，如 `--ue-base 17:15:12.275` |
 | 与 Export 仅少数 Content 大数不同（后段全 0） | CLI `*_pb` 偶发 double 零填充 | 同包若有非 `_pb` traceview，导出会自动补全；仅 CLI 缓存时无法凭空恢复 |
 | 目录下多个 `.logel` / 多个 `*_armlog` | 只处理其中一个 | stderr `[WARN] multiple .logel`；改为传入具体 `.logel` 或单个 `*_armlog` |
+| 多个 `traceview`（`*_pb` / `_pb1` / 非 `_pb`） | 默认优先精确 `*_pb`，可能与 Export 不一致 | stderr `[WARN] multiple traceview` 并列出；用 `--traceview xxx_pb1`（或缓存目录路径）指定 |
 | `.rar`/`.7z` 报 7z not found | 未配置解压工具 | `--7z`，或 `SEVEN_ZIP`/`7Z_EXE`，或 PATH 中的 `7z`；`.zip` 一般不需要 |
 | 第一次导出少几百行，开过 Logel 后又齐了 | 当时读的是旧/非 `_pb` 的 `traceview` | 确认选用的是 `*_pb`；非 `_pb` 时 stderr 会有 `[WARN]` |
 | 控制台只有 `[DONE]`、管道里看不到告警 | `[WARN]`/`[ERROR]` 在 **stderr** | 重定向时保留 stderr，或 `2>&1` |
