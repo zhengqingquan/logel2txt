@@ -44,6 +44,7 @@
 | `playback` 提示未配置 Logel | 未传路径且无环境变量 | `--logel` / `--logel-root`，或 `LOGEL_EXE` / `LOGEL_ROOT` |
 | CLI 回放 exit 非 0 | 部分版本写完后偶发崩溃 | 若已写出可识别 `traceview.*`，工具会继续导出 |
 | `unsupported PBS layout` | 未知记录长度 | 换 R9.21–R9.26，或 GUI 打开后再导 |
+| 想知道日志是哪版 Logel 抓的 | 看主 `*.lst` 的 `Tool Version` | `logel2txt info <armlog|.logel|zip>`；`*_pb*.lst` 是后来打开的版本 |
 
 ## 行为预期
 

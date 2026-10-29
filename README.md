@@ -8,6 +8,16 @@
 
 ## 快速开始
 
+### 查看抓取用的 Logel 版本
+
+读 armlog 旁 `*.lst` 中的 `Tool Version`（主 `.lst` 为抓取工具；`*_pb*.lst` 为后来打开/回放）：
+
+```bat
+python logel2txt.py info "D:\work\logs\xxx_armlog"
+python logel2txt.py info "D:\work\logs\xxx_armlog.zip"
+logel2txt.exe info "D:\work\logs\xxx.logel"
+```
+
 ### 一条命令（推荐，无需手动开 GUI）
 
 用 **R9.21–R9.26** 命令行回放生成 `*_pb`，再导出文本（**须指定** Logel，无内置默认路径）：

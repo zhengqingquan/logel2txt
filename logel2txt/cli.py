@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from logel2txt import __version__
 from logel2txt.archive import ArchiveError, prepare_input
+from logel2txt.capture_info import format_capture_info, inspect_capture_info
 from logel2txt.discover import default_output_path, resolve_inputs
 from logel2txt.exporters import (
     export_from_logel_raw,
@@ -362,9 +363,76 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
     )
 
 
+def info_main(argv: Optional[List[str]] = None) -> int:
+    ap = argparse.ArgumentParser(
+        prog="logel2txt info",
+        description=(
+            "Show which Logel Tool Version captured the log "
+            "(from *.lst next to .logel). Also lists replay *_pb*.lst if present."
+        ),
+    )
+    ap.add_argument(
+        "input",
+        type=Path,
+        help="armlog directory, .logel, .lst, or .zip/.rar/.7z archive",
+    )
+    ap.add_argument(
+        "--7z",
+        dest="seven_zip",
+        type=Path,
+        default=None,
+        help="7z.exe for .rar/.7z (or SEVEN_ZIP / 7Z_EXE / PATH)",
+    )
+    ap.add_argument(
+        "--extract-to",
+        type=Path,
+        default=None,
+        help="directory to extract archive into (default: <archive_stem> beside it)",
+    )
+    ap.add_argument(
+        "--force-extract",
+        action="store_true",
+        help="re-extract archive even if extract dir already has .logel",
+    )
+    args = ap.parse_args(argv)
+
+    try:
+        input_path = prepare_input(
+            args.input,
+            seven_zip=args.seven_zip,
+            extract_to=args.extract_to,
+            force_extract=args.force_extract,
+        )
+    except ArchiveError as e:
+        _err(str(e))
+        return 1
+
+    logel_stem = None
+    try:
+        if input_path.is_file() and input_path.suffix.lower() == ".logel":
+            logel_stem = input_path.stem
+        elif input_path.is_dir():
+            logel_stem = resolve_logel_file(input_path).stem
+    except FileNotFoundError:
+        logel_stem = None
+
+    try:
+        info = inspect_capture_info(input_path, logel_stem=logel_stem)
+    except OSError as e:
+        _err(f"cannot read lst under {input_path}: {type(e).__name__}: {e}")
+        return 1
+
+    print(format_capture_info(info))
+    if info.tool_version:
+        return 0
+    return 2
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
     if argv and argv[0] == "playback":
         return playback_main(argv[1:])
+    if argv and argv[0] == "info":
+        return info_main(argv[1:])
     return export_main(argv)
