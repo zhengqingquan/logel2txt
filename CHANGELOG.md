@@ -15,6 +15,7 @@
 
 ### 修复
 
+- `info` 找不到抓取 `Tool Version` 时向 stderr 打 `[WARN]`；`playback` 在 Logel 非 0 退出但已有 `*_pb` 时提示继续导出。
 - Content 中 `0xFF` 等字节改为 latin-1 编解码，避免写成 U+FFFD，更接近 Logel Export Trace。
 - CLI `*_pb` 中偶发 double 零填充大数 Content：若同包其它 traceview 缓存有同 SN/sub/Tick 的更完整串则替换。
 - 输入目录含多个 `.logel` 时 stderr 提示并列出其它文件（仍选用其中一个）。

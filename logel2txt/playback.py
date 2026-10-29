@@ -360,6 +360,12 @@ def ensure_playback_cache(
         raise FileNotFoundError(
             f"playback finished (exit={code}) but missing {pb}\\traceview.*"
         )
+    if code != 0:
+        print(
+            f"[WARN] Logel exited {code} but {pb}\\traceview.* exists; "
+            "continuing export (some builds crash after writing the cache).",
+            file=sys.stderr,
+        )
     pbs_path = pb / "traceview.pbs"
     dat_path = pb / "traceview.dat"
     pbs_size = pbs_path.stat().st_size

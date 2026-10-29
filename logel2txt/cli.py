@@ -425,6 +425,21 @@ def info_main(argv: Optional[List[str]] = None) -> int:
     print(format_capture_info(info))
     if info.tool_version:
         return 0
+    if info.capture is not None:
+        _warn(
+            "capture .lst has no Tool Version field; "
+            "cannot determine which Logel captured this log."
+        )
+    elif info.replays:
+        _warn(
+            "no capture .lst (only *_pb*.lst replay summaries); "
+            "those Tool Versions are from later open/playback, not capture."
+        )
+    else:
+        _warn(
+            "no *.lst with Tool Version found; "
+            "capture tool version unknown for this input."
+        )
     return 2
 
 

@@ -77,10 +77,26 @@ class TestCaptureInfo(unittest.TestCase):
             root = Path(td)
             (root / "a.logel").write_bytes(b"xx")
             out = io.StringIO()
-            with redirect_stdout(out), redirect_stderr(io.StringIO()):
+            err = io.StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
                 code = main(["info", str(root)])
             self.assertEqual(code, 2)
             self.assertIn("no capture", out.getvalue().lower())
+            self.assertIn("[WARN]", err.getvalue())
+            self.assertIn("Tool Version", err.getvalue())
+
+    def test_info_cli_replay_only_warns(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            stem = "sample"
+            (root / f"{stem}_pb.lst").write_text(_SAMPLE_REPLAY, encoding="ascii")
+            (root / f"{stem}.logel").write_bytes(b"xx")
+            err = io.StringIO()
+            with redirect_stdout(io.StringIO()), redirect_stderr(err):
+                code = main(["info", str(root)])
+            self.assertEqual(code, 2)
+            self.assertIn("[WARN]", err.getvalue())
+            self.assertIn("replay", err.getvalue().lower())
 
 
 if __name__ == "__main__":
