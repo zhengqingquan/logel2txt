@@ -10,7 +10,11 @@ from typing import List, Optional
 
 from logel2txt import __version__
 from logel2txt.archive import ArchiveError, prepare_input
-from logel2txt.capture_info import format_capture_info, inspect_capture_info
+from logel2txt.capture_info import (
+    LstMeta,
+    format_capture_info,
+    inspect_capture_info,
+)
 from logel2txt.discover import default_output_path, resolve_inputs
 from logel2txt.exporters import (
     export_from_logel_raw,
@@ -225,6 +229,9 @@ def export_main(argv: Optional[List[str]] = None) -> int:
     except ArchiveError as e:
         _err(str(e))
         return 1
+    except FileNotFoundError as e:
+        _err(str(e))
+        return 1
     return run_export(
         input_path,
         output=args.output,
@@ -354,6 +361,7 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
     prefer = args.traceview
     if prefer is None and not args.skip_playback:
         prefer = f"{logel_file.stem}_pb"
+        _info(f"export will prefer playback cache: {prefer}")
 
     return run_export(
         logel_file.parent,
@@ -406,11 +414,16 @@ def info_main(argv: Optional[List[str]] = None) -> int:
     except ArchiveError as e:
         _err(str(e))
         return 1
+    except FileNotFoundError as e:
+        _err(str(e))
+        return 1
 
     logel_stem = None
     try:
         if input_path.is_file() and input_path.suffix.lower() == ".logel":
             logel_stem = input_path.stem
+        elif input_path.is_file() and input_path.suffix.lower() == ".lst":
+            logel_stem = LstMeta(path=input_path).capture_stem
         elif input_path.is_dir():
             logel_stem = resolve_logel_file(input_path).stem
     except FileNotFoundError:

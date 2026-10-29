@@ -121,7 +121,7 @@ def extract_archive(
     else:
         dest = archive.parent / archive.stem
     if dest.is_dir() and _has_logel(dest) and not force:
-        print(f"[INFO] reuse extracted dir: {dest}", file=sys.stderr)
+        print(f"[INFO] reuse extracted dir: {dest}")
         return _unwrap_extract_root(dest)
 
     suf = archive.suffix.lower()
@@ -132,6 +132,10 @@ def extract_archive(
             _extract_zip_stdlib(archive, dest)
         except zipfile.BadZipFile:
             # uncommon zip variants: fall back to 7z if available
+            print(
+                "[WARN] zipfile could not open archive; falling back to 7z",
+                file=sys.stderr,
+            )
             exe = find_7z(seven_zip)
             _extract_with_7z(archive, dest, exe)
         except OSError as e:
@@ -159,6 +163,8 @@ def prepare_input(
 ) -> Path:
     """If path is an archive, extract and return content dir; else return path."""
     path = path.expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"input path not found: {path}")
     if path.is_file() and is_archive(path):
         return extract_archive(
             path,
@@ -169,6 +175,11 @@ def prepare_input(
     if extract_to is not None:
         print(
             "[WARN] --extract-to ignored (input is not an archive)",
+            file=sys.stderr,
+        )
+    if force_extract:
+        print(
+            "[WARN] --force-extract ignored (input is not an archive)",
             file=sys.stderr,
         )
     return path

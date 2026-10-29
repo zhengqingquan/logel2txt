@@ -52,19 +52,26 @@ class TestArchiveHelpers(unittest.TestCase):
             # archive contains sample_armlog/x.logel
             with zipfile.ZipFile(zpath, "w") as zf:
                 zf.writestr("sample_armlog/x.logel", b"logel-bytes")
-            err = io.StringIO()
-            with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            out_buf = io.StringIO()
+            with redirect_stderr(io.StringIO()), redirect_stdout(out_buf):
                 out1 = extract_archive(zpath)
             self.assertTrue((out1 / "x.logel").is_file() or list(out1.rglob("*.logel")))
-            with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            out_buf = io.StringIO()
+            with redirect_stderr(io.StringIO()), redirect_stdout(out_buf):
                 out2 = extract_archive(zpath)
             self.assertEqual(out1.resolve(), out2.resolve())
-            self.assertIn("reuse", err.getvalue().lower())
+            self.assertIn("reuse", out_buf.getvalue().lower())
 
     def test_prepare_input_passthrough_dir(self):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td)
             self.assertEqual(prepare_input(p), p.resolve())
+
+    def test_prepare_input_missing_raises(self):
+        missing = Path("E:/no_such_logel2txt_archive_zzz.zip")
+        with self.assertRaises(FileNotFoundError) as cm:
+            prepare_input(missing)
+        self.assertIn("not found", str(cm.exception).lower())
 
     def test_extract_to_custom_dir(self):
         with tempfile.TemporaryDirectory() as td:

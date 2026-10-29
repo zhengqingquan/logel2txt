@@ -204,11 +204,12 @@ def resolve_inputs(
     if path.is_file():
         suf = path.suffix.lower()
         if suf == ".logel":
-            # 同级或父目录找 traceview
-            for root in {path.parent, path.parent.parent}:
-                pair = find_traceview_pair(root, prefer=prefer_traceview)
-                if pair:
-                    return "traceview", pair
+            # 只在 .logel 同级目录树查找，避免扫到上级其它 armlog 包的缓存
+            pair = find_traceview_pair(
+                path.parent, prefer=prefer_traceview
+            )
+            if pair:
+                return "traceview", pair
             if prefer_traceview:
                 raise FileNotFoundError(
                     f"no traceview matching --traceview {prefer_traceview!r} "
