@@ -227,7 +227,7 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
             "Logel CLI playback -> *_pb/traceview -> export "
             "(Export Trace text). Requires --logel / LOGEL_EXE / "
             "--logel-root / LOGEL_ROOT (no built-in default). "
-            "Refuses R9.25/R9.26 CLI (incompatible PBS)."
+            "Supports Logel R9.21–R9.26 CLI PBS (44/52/76B records)."
         ),
     )
     ap.add_argument(
@@ -252,14 +252,14 @@ def playback_main(argv: Optional[List[str]] = None) -> int:
         "--logel",
         type=Path,
         default=None,
-        help="Logel.exe or install dir (prefer R9.21/R9.23); or set LOGEL_EXE",
+        help="Logel.exe or install dir (R9.21–R9.26); or set LOGEL_EXE",
     )
     ap.add_argument(
         "--logel-root",
         type=Path,
         default=None,
         help=(
-            "scan ROOT\\Logel_R* and ROOT\\Logel\\Bin, prefer R9.21 then R9.23; "
+            "scan ROOT\\Logel_R* and ROOT\\Logel\\Bin, prefer R9.21 then newer; "
             "or set LOGEL_ROOT"
         ),
     )

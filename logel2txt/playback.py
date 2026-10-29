@@ -5,10 +5,11 @@
   - --logel / LOGEL_EXE / LOGEL_HOME：Logel.exe 或安装目录
   - --logel-root / LOGEL_ROOT：扫描 Logel_R* 与 Logel\\Bin\\Logel.exe，优先 R9.21
 
-CLI 回放写出的 PBS：
-  - R9.21 / R9.23：与 GUI 一致（约 44B/条），logel2txt 可完整导出
-    （R9.23 CLI 常在写完 *_pb 后 0xC0000005，只要 traceview 在仍继续）
-  - R9.25 / R9.26：同参数 PBS 布局不同 → 拒绝并提示改用 R9.21/R9.23
+CLI 回放写出的 PBS（均可解析）：
+  - R9.21 / R9.23：约 44B/条
+  - R9.25：约 52B/条（44 + 8 尾填充）
+  - R9.26：约 76B/条（偏移 24 插入 4B）
+  R9.23/R9.25/R9.26 CLI 常在写完 *_pb 后 0xC0000005，只要 traceview 在仍继续。
 """
 
 from __future__ import annotations
@@ -23,13 +24,15 @@ from ctypes import wintypes
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from logel2txt.exporters import detect_pbs_rec_size
+
 PBS_SIZE_WARN = 30_000_000
 
 # (major, minor) — CLI PBS layout known-good for logel2txt
-_CLI_COMPAT_MINORS = {(9, 21), (9, 23)}
-_CLI_INCOMPAT_MINORS = {(9, 25), (9, 26)}
+_CLI_COMPAT_MINORS = {(9, 21), (9, 23), (9, 25), (9, 26)}
+_CLI_INCOMPAT_MINORS: set = set()
 # Prefer order when several compatible builds exist under --logel-root
-_CLI_PREF_ORDER = (21, 23)
+_CLI_PREF_ORDER = (21, 23, 25, 26)
 
 _VERSION_RE = re.compile(r"[Rr]?9[._](\d+)[._](\d+)", re.IGNORECASE)
 
@@ -159,7 +162,7 @@ def list_logel_under_root(root: Path) -> List[Path]:
 def config_hint(root: Optional[Path] = None) -> str:
     lines = [
         "Specify Logel for playback (no built-in default path):",
-        "  --logel PATH          Logel.exe or install dir (prefer R9.21/R9.23)",
+        "  --logel PATH          Logel.exe or install dir (R9.21–R9.26)",
         "  LOGEL_EXE / LOGEL_HOME",
         "  --logel-root DIR      scan Logel_R* / Logel\\Bin (prefer R9.21)",
         "  LOGEL_ROOT",
@@ -178,8 +181,8 @@ def config_hint(root: Optional[Path] = None) -> str:
                 }.get(st, "?")
                 lines.append(f"  [{mark}] {ver}: {exe}")
             lines.append(
-                "Use R9.21/R9.23 for CLI playback. R9.25 / R9.26 CLI PBS differs — "
-                "GUI-open then export, or --logel to a compatible build."
+                "Use R9.21–R9.26 for CLI playback (PBS 44/52/76B). "
+                "Unknown versions: try playback; GUI-open then export also works."
             )
         else:
             lines.append(f"No Logel.exe found under {root}.")
@@ -198,9 +201,8 @@ def format_install_hint(exes: Optional[List[Path]] = None) -> str:
         )
         lines.append(f"  [{mark}] {ver}: {exe}")
     lines.append(
-        "For `logel2txt playback`, use R9.21/R9.23 (compatible). "
-        "R9.25 / R9.26 CLI PBS layout differs — open in GUI then export, "
-        "or point --logel to a compatible build."
+        "For `logel2txt playback`, use R9.21–R9.26 (PBS 44/52/76B). "
+        "Unknown builds: open in GUI then export, or try --logel anyway."
     )
     return "\n".join(lines)
 
@@ -219,7 +221,7 @@ def check_cli_compatible(
     if status == "unknown" and allow_unknown:
         print(
             f"[WARN] Logel version unknown from path ({logel}); "
-            "CLI PBS may not match logel2txt. Prefer R9.21/R9.23.",
+            "CLI PBS may not match logel2txt. Prefer R9.21–R9.26.",
             file=sys.stderr,
         )
         return
@@ -244,7 +246,7 @@ def _pick_compatible(exes: List[Path]) -> Path:
                 return by_minor[pref][0]
         return compatible[0]
     raise IncompatibleLogelError(
-        "No CLI-compatible Logel (R9.21/R9.23) found among candidates.\n"
+        "No CLI-compatible Logel (R9.21–R9.26) found among candidates.\n"
         f"{format_install_hint(exes)}"
     )
 
@@ -358,13 +360,23 @@ def ensure_playback_cache(
         raise FileNotFoundError(
             f"playback finished (exit={code}) but missing {pb}\\traceview.*"
         )
-    pbs_size = (pb / "traceview.pbs").stat().st_size
+    pbs_path = pb / "traceview.pbs"
+    dat_path = pb / "traceview.dat"
+    pbs_size = pbs_path.stat().st_size
     print(f"[INFO] playback cache: {pb} (pbs {pbs_size} bytes)")
     if pbs_size > PBS_SIZE_WARN:
         raise IncompatibleLogelError(
-            f"PBS unusually large ({pbs_size} bytes); likely R9.25/R9.26 CLI layout, "
-            "not the 44-byte/record format logel2txt expects.\n"
+            f"PBS unusually large ({pbs_size} bytes); unsupported layout?\n"
             f"  cache: {pb}\n"
             f"{config_hint()}"
         )
+    try:
+        rec = detect_pbs_rec_size(pbs_path.read_bytes(), dat_path.read_bytes())
+    except ValueError as e:
+        raise IncompatibleLogelError(
+            f"playback wrote PBS that logel2txt cannot parse: {e}\n"
+            f"  cache: {pb}\n"
+            f"{config_hint()}"
+        ) from e
+    print(f"[INFO] PBS record size: {rec} bytes")
     return pb

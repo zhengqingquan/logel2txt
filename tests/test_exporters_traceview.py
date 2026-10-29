@@ -12,6 +12,7 @@ from logel2txt.exporters import (
     PBS_HEADER_SIZE,
     PBS_MAGIC,
     PBS_REC_SIZE,
+    detect_pbs_rec_size,
     enrich_content,
     export_from_traceview,
     looks_degraded_numeric,
@@ -26,8 +27,10 @@ def _build_pbs_record(
     core: int,
     strlen: int,
     stroff: int,
+    *,
+    rec_size: int = PBS_REC_SIZE,
 ) -> bytes:
-    # <IiIIiI at 0, <HHIIII at 24
+    # <IiIIiI at 0; string block at 24 (44/52) or 28 (76)
     head = struct.pack(
         "<IiIIiI",
         1,  # seq
@@ -37,7 +40,7 @@ def _build_pbs_record(
         core,
         0,  # unk0
     )
-    tail = struct.pack(
+    str_block = struct.pack(
         "<HHIIII",
         0,  # pad
         strlen,
@@ -46,8 +49,15 @@ def _build_pbs_record(
         0,
         0,
     )
-    rec = head + tail
-    assert len(rec) == PBS_REC_SIZE
+    if rec_size == 44:
+        rec = head + str_block
+    elif rec_size == 52:
+        rec = head + str_block + (b"\0" * 8)
+    elif rec_size == 76:
+        rec = head + (b"\0" * 4) + str_block + (b"\0" * 28)
+    else:
+        raise ValueError(rec_size)
+    assert len(rec) == rec_size
     return rec
 
 
@@ -89,6 +99,25 @@ class TestExportFromTraceview(unittest.TestCase):
             pbs_path.write_bytes(b"XXXX" + b"\0" * (PBS_HEADER_SIZE + PBS_REC_SIZE))
             with self.assertRaises(ValueError):
                 export_from_traceview(dat_path, pbs_path, 0)
+
+    def test_detect_and_export_52_and_76(self):
+        content = b"TRACE_HELLO\0"
+        sn, sub, tick_ms, core = 42, 3, 2500, 1
+        for stride in (52, 76):
+            rec = _build_pbs_record(
+                sn, sub, tick_ms, core, len(content), 0, rec_size=stride
+            )
+            pbs = PBS_MAGIC + b"\0" * (PBS_HEADER_SIZE - 4) + rec
+            self.assertEqual(detect_pbs_rec_size(pbs, content), stride)
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                (root / "traceview.dat").write_bytes(content)
+                (root / "traceview.pbs").write_bytes(pbs)
+                lines = export_from_traceview(
+                    root / "traceview.dat", root / "traceview.pbs", 0
+                )
+            self.assertEqual(len(lines), 2)
+            self.assertTrue(lines[1].split("\t")[3].startswith("TRACE_HELLO"))
 
     def test_enrich_replaces_degraded_numeric(self):
         bad = "=" + "25010982249966588" + ("0" * 140)

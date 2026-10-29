@@ -18,11 +18,21 @@ def list_traceview_pairs(root: Path) -> List[Tuple[Path, Path]]:
     return pairs
 
 
+def _pb_dir_priority(name: str) -> int:
+    """Lower is better: exact *_pb, then other *_pb*, then non-pb."""
+    n = name.lower()
+    if n.endswith("_pb"):
+        return 0
+    if "_pb" in n:
+        return 1
+    return 2
+
+
 def find_traceview_pair(root: Path) -> Optional[Tuple[Path, Path]]:
-    """在目录树中查找 traceview.dat/.pbs，优先 *_pb。"""
+    """在目录树中查找 traceview.dat/.pbs，优先名以 _pb 结尾的目录。"""
     candidates: List[Tuple[int, Path, Path]] = []
     for dat, pbs in list_traceview_pairs(root):
-        pri = 0 if "_pb" in dat.parent.name.lower() else 1
+        pri = _pb_dir_priority(dat.parent.name)
         candidates.append((pri, dat, pbs))
     if not candidates:
         return None

@@ -1,22 +1,22 @@
 # 抓取目录结构（ArmLogel / armlog）
 
-展锐工具抓取或解压后的 ARM 日志，常见是「时间戳 + `_armlog`」目录，旁边可能还有 `.rar` 与已导出的 `.txt` / `.trace`。
+展锐工具抓取或解压后的 ARM 日志，常见是「时间戳 + `_armlog`」目录；同级可能还有压缩包与已导出的 `.txt` / `.trace`。名称中的时间戳因抓取而异；关键后缀是 `_armlog`、`.logel`、`*_pb`、`traceview.dat` / `.pbs`。
 
 ## 典型布局
 
 ```
-2026_08_25_17_24_05_960_armlog/          # 抓取包根目录（也可直接把此路径交给 logel2txt）
-├── 2026_08_25_17_24_05_960.logel        # 原始日志（二进制；大量条目需 Logel 解码）
+2026_08_25_17_24_05_960_armlog/          # 抓取包根目录
+├── 2026_08_25_17_24_05_960.logel        # 原始日志（二进制）
 ├── 2026_08_25_17_24_05_960_log_stat.txt # 统计信息（可选）
-├── 2026_08_25_17_24_05_960_trace.txt    # 常为 0 字节占位，不能当完整导出用
+├── 2026_08_25_17_24_05_960_trace.txt    # 常为 0 字节占位，不是完整导出
 ├── 2026_08_25_17_24_05_960/             # 非 _pb 回放缓存（可能偏旧/偏少）
 │   ├── traceview.dat
 │   ├── traceview.pbs
-│   └── phytraceview.*                   # 物理层相关缓存（本工具不读）
-└── 2026_08_25_17_24_05_960_pb/          # Logel 打开/回放后生成（推荐）
+│   └── phytraceview.*                   # 物理层相关缓存
+└── 2026_08_25_17_24_05_960_pb/          # Logel 打开/回放后生成的解码缓存
     ├── traceview.dat                    # 字符串表
-    ├── traceview.pbs                    # 索引记录（本工具主要输入）
-    ├── msgview.* / msgflowview.*        # 其它视图缓存（本工具不读）
+    ├── traceview.pbs                    # 索引记录（与 .dat 成对）
+    ├── msgview.* / msgflowview.*        # 其它视图缓存
     └── phytraceview.* / phyparamchart.*
 ```
 
@@ -24,37 +24,22 @@
 
 | 文件 | 说明 |
 |------|------|
-| `*_armlog.rar` | 压缩包；仅解压不够，需 Logel 打开才会有完整 `_pb` |
-| `*_armlog.txt` / `*.trace` | Logel **Export Trace** 或本工具的导出结果 |
+| `*_armlog.rar` / `.zip` / `.7z` | 抓取压缩包；解压后得到上表目录树 |
+| `*_armlog.txt` / `*.trace` | Export Trace 或其它工具写出的文本结果 |
 
-名称中的时间戳因抓取而异；关键后缀是 `_armlog`、`.logel`、`*_pb`、`traceview.dat` / `.pbs`。
+## 文件角色
 
-## 各文件对 logel2txt 的意义
+| 路径 / 后缀 | 含义 |
+|-------------|------|
+| `*.logel` | 原始抓取二进制；大量条目为「格式串 ID + 参数」，本身不含完整可读 Content |
+| `*_pb\` | 完整回放后的解码缓存目录（名称通常为「与 .logel 同名 + `_pb`」） |
+| 非 `_pb` 同名目录 | 较早或未充分回放的缓存，条目可能少于 `_pb` |
+| `traceview.dat` | 字符串表（Content 等文本） |
+| `traceview.pbs` | 与同目录 `.dat` 配套的索引：魔数 `TIND`、约 512 字节头、其后定长记录（常见 **44 / 52 / 76** 字节/条，含 TickCount、CORE、指向 dat 的偏移等） |
+| `*_trace.txt`（0 字节） | 占位，无有效内容 |
+| `*_log_stat.txt` | 统计摘要，不是逐条 Trace |
+| `msgview.*` / `msgflowview.*` / `phytraceview.*` / `phyparamchart.*` | 其它视图或物理层缓存，与 `traceview` 并行存在 |
 
-| 路径 | 本工具如何用 |
-|------|----------------|
-| `*_pb\traceview.dat` + `traceview.pbs` | **优先**；完整解码，可对齐 Export Trace |
-| 非 `_pb` 目录下的 `traceview.*` | 次选；行数可能少于 `_pb` |
-| 仅有 `.logel` | 明文 TLV 抽取，**不完整** |
-| `*_trace.txt`（0 字节） | 忽略 |
-| `msgview.*` / `phytraceview.*` 等 | 不使用 |
+一对完整的 Trace 视图缓存 = 同目录下的 `traceview.dat` + `traceview.pbs`。通常以 `*_pb` 下这一对为准；非 `_pb` 目录下也可能有同名文件，但内容可能不完整。
 
-查找规则：在输入路径下递归搜索 `traceview.dat`，要求同目录有 `traceview.pbs`；父目录名含 `_pb` 的优先，同优先级再取更大的 `dat`。
-
-## 推荐操作顺序
-
-**一条命令（推荐，需本机 R9.21/R9.23 Logel；须指定路径）：**
-
-```bat
-logel2txt.exe playback "D:\work\logs\xxx_armlog" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
-logel2txt.exe playback "D:\work\logs\xxx_armlog.rar" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool" --7z "D:\path\to\7z.exe"
-```
-
-**或分步：**
-
-1. 解压 rar（若有）得到 `*_armlog`（也可让 `playback` 直接吃压缩包自动解压）
-2. 用 **ArmLogel / Logel** 打开该目录或 `.logel`，等待解析结束（或 CLI `-f -q -w hide`）
-3. 确认出现 `*_pb\traceview.dat` 与 `traceview.pbs`
-4. 再运行 `logel2txt.exe` / `python logel2txt.py`（需要绝对 UE Time 时加 `--ue-base`）
-
-更细的「为何必须先开 Logel、行数对不齐、版本约束」见 [troubleshooting.md](troubleshooting.md)。
+使用与排错见 [troubleshooting.md](troubleshooting.md)；命令见 [README.md](../README.md)。

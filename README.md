@@ -10,7 +10,7 @@
 
 ### 一条命令（推荐，无需手动开 GUI）
 
-用 **R9.21 / R9.23** 命令行回放生成 `*_pb`，再导出文本（**须指定** Logel，无内置默认路径）：
+用 **R9.21–R9.26** 命令行回放生成 `*_pb`，再导出文本（**须指定** Logel，无内置默认路径）：
 
 ```bat
 python logel2txt.py playback "D:\work\logs\xxx.logel" -o out.txt --ue-base 14:35:27.569 --logel "D:\path\to\Logel\Bin\Logel.exe"
@@ -19,13 +19,13 @@ python logel2txt.py playback "D:\work\logs\xxx_armlog.rar" -o out.txt --ue-base 
 logel2txt.exe playback "D:\work\logs\xxx_armlog.zip" -o out.txt --ue-base 14:35:27.569 --logel-root "D:\path\to\Unisoc_Tool"
 ```
 
-也可用环境变量：`LOGEL_EXE` / `LOGEL_HOME`（单个安装）或 `LOGEL_ROOT`（扫描 `Logel_R*` 与 `Logel\Bin`，优先 R9.21，其次 R9.23）。**R9.25 / R9.26 的 CLI PBS 布局不兼容**，会拒绝并提示改用 R9.21/R9.23。
+也可用环境变量：`LOGEL_EXE` / `LOGEL_HOME`（单个安装）或 `LOGEL_ROOT`（扫描 `Logel_R*` 与 `Logel\Bin`，优先 R9.21）。CLI PBS 支持 **44 / 52 / 76** 字节记录（对应 R9.21/23、R9.25、R9.26）。
 
 压缩包：支持 `.zip` / `.rar` / `.7z`，解压到同名旁路目录（已有 `.logel` 则复用）。`.zip` 用标准库；`.rar`/`.7z` 须 `--7z` 或 `SEVEN_ZIP` / `7Z_EXE` / PATH 中的 `7z`（无内置默认路径）。
 
 | `playback` 额外参数 | 说明 |
 |------|------|
-| `--logel` | Logel.exe 或安装目录（推荐 R9.21 / R9.23） |
+| `--logel` | Logel.exe 或安装目录（R9.21–R9.26） |
 | `--logel-root` | 工具根目录，扫描 `Logel_R*` / `Logel\`，优先 R9.21 |
 | `--7z` | 7z.exe（`.rar`/`.7z` 需要） |
 | `--extract-to` | 解压目标目录（默认：压缩包旁同名文件夹） |

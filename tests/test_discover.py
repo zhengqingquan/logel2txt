@@ -35,6 +35,16 @@ class TestDiscover(unittest.TestCase):
             dat, _ = pair
             self.assertEqual(dat.parent.name, "sample_pb")
 
+    def test_prefer_exact_pb_over_pb1(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _touch_traceview(root / "sample_pb1", dat_size=500)
+            _touch_traceview(root / "sample_pb", dat_size=50)
+            pair = find_traceview_pair(root)
+            self.assertIsNotNone(pair)
+            dat, _ = pair
+            self.assertEqual(dat.parent.name, "sample_pb")
+
     def test_resolve_logel_only(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

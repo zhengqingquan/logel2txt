@@ -92,14 +92,14 @@ class TestPlaybackHelpers(unittest.TestCase):
         self.assertEqual(parse_logel_version(p23), (9, 23, 1102))
         self.assertEqual(cli_pbs_status(p21), "compatible")
         self.assertEqual(cli_pbs_status(p23), "compatible")
-        self.assertEqual(cli_pbs_status(p25), "incompatible")
-        self.assertEqual(cli_pbs_status(p26), "incompatible")
+        self.assertEqual(cli_pbs_status(p25), "compatible")
+        self.assertEqual(cli_pbs_status(p26), "compatible")
         check_cli_compatible(p21)
         check_cli_compatible(p23)
-        with self.assertRaises(IncompatibleLogelError) as cm:
-            check_cli_compatible(p26)
-        self.assertIn("R9.26", str(cm.exception))
-        self.assertIn("R9.21", str(cm.exception))
+        check_cli_compatible(p25)
+        check_cli_compatible(p26)
+        p99 = Path(r"X:\tools\Logel_R9.99.0001\Bin\Logel.exe")
+        self.assertEqual(cli_pbs_status(p99), "unknown")
 
     def test_find_logel_requires_config(self):
         with patch.dict("os.environ", {}, clear=False):
@@ -134,13 +134,17 @@ class TestPlaybackHelpers(unittest.TestCase):
             found = list_logel_under_root(root)
             self.assertEqual(set(found), {e1.resolve(), e2.resolve()})
 
-    def test_find_logel_root_only_incompatible(self):
+    def test_find_logel_root_picks_r925_when_only(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            _fake_install(root, "Logel_R9.25.1801")
-            with self.assertRaises(IncompatibleLogelError) as cm:
-                find_logel(None, root=root)
-            self.assertIn("R9.21", str(cm.exception))
+            exe25 = _fake_install(root, "Logel_R9.25.1801")
+            with patch.dict("os.environ", {}, clear=False):
+                import os
+
+                os.environ.pop("LOGEL_EXE", None)
+                os.environ.pop("LOGEL_HOME", None)
+                os.environ.pop("LOGEL_ROOT", None)
+                self.assertEqual(find_logel(None, root=root), exe25.resolve())
 
     def test_find_logel_env_dir_unknown_warns(self):
         with tempfile.TemporaryDirectory() as td:
@@ -155,10 +159,9 @@ class TestPlaybackHelpers(unittest.TestCase):
                     self.assertEqual(find_logel(None), home / "Logel.exe")
             self.assertIn("[WARN]", err.getvalue())
 
-    def test_find_logel_explicit_r926_refused(self):
+    def test_find_logel_explicit_r926_ok(self):
         p = Path(r"X:\tools\Logel_R9.26.3802\Bin\Logel.exe")
-        with self.assertRaises(IncompatibleLogelError):
-            find_logel(p)
+        self.assertEqual(find_logel(p), p)
 
     def test_run_logel_playback_builds_args(self):
         with tempfile.TemporaryDirectory() as td:
@@ -233,12 +236,13 @@ class TestPlaybackCli(unittest.TestCase):
             self.assertIn("[ERROR]", err.getvalue())
             self.assertIn("Logel.exe not found", err.getvalue())
 
-    def test_playback_refuses_r926(self):
+    def test_playback_accepts_r926_path_then_missing_exe(self):
+        """R9.26 is compatible; failure is missing Logel.exe on disk."""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "a.logel").write_bytes(b"xx")
             out = root / "out.txt"
-            bad = Path(r"X:\tools\Logel_R9.26.3802\Bin\Logel.exe")
+            missing = Path(r"X:\tools\Logel_R9.26.3802\Bin\Logel.exe")
             err = io.StringIO()
             with redirect_stderr(err), redirect_stdout(io.StringIO()):
                 code = main(
@@ -248,14 +252,13 @@ class TestPlaybackCli(unittest.TestCase):
                         "-o",
                         str(out),
                         "--logel",
-                        str(bad),
+                        str(missing),
                     ]
                 )
             self.assertEqual(code, 1)
             err_s = err.getvalue()
             self.assertIn("[ERROR]", err_s)
-            self.assertIn("cannot parse", err_s.lower())
-            self.assertIn("R9.21", err_s)
+            self.assertIn("Logel.exe not found", err_s)
 
     def test_playback_missing_pb_after_run(self):
         with tempfile.TemporaryDirectory() as td:

@@ -7,14 +7,17 @@ import re
 import struct
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from logel2txt.discover import sibling_traceview_pairs
 from logel2txt.format import HDR, format_line
 
 PBS_MAGIC = b"TIND"
 PBS_HEADER_SIZE = 512
+# Legacy alias: R9.21 / early GUI 44B/record
 PBS_REC_SIZE = 44
+# Known CLI/GUI index strides (body must divide evenly)
+PBS_REC_SIZES = (44, 52, 76)
 
 # (sn, sub, tick_ms) -> candidate Content strings from a cache
 ContentIndex = Dict[Tuple[int, int, int], List[str]]
@@ -27,6 +30,60 @@ _DEGRADED_ZEROS = re.compile(r"^0{16,}.*\.0+$")
 def _decode_content(raw: bytes) -> str:
     # latin-1 保留 0xFF 等字节，与 Logel Export Trace 一致
     return raw.split(b"\0", 1)[0].decode("latin-1", errors="replace")
+
+
+def detect_pbs_rec_size(
+    pbs: bytes, dat: Optional[bytes] = None
+) -> int:
+    """Detect PBS record stride: 44 (R9.21/R9.23), 52 (R9.25), 76 (R9.26)."""
+    if len(pbs) < 4 or pbs[:4] != PBS_MAGIC:
+        raise ValueError(f"invalid traceview.pbs magic={pbs[:4]!r}")
+    if len(pbs) < PBS_HEADER_SIZE + min(PBS_REC_SIZES):
+        raise ValueError("traceview.pbs too small")
+    body = len(pbs) - PBS_HEADER_SIZE
+    candidates = [s for s in PBS_REC_SIZES if body >= s and body % s == 0]
+    if not candidates:
+        raise ValueError(
+            f"unsupported PBS layout (body={body} bytes; "
+            f"expected multiple of {PBS_REC_SIZES})"
+        )
+    if len(candidates) == 1:
+        return candidates[0]
+    if dat is not None:
+        return max(candidates, key=lambda s: _score_pbs_stride(pbs, dat, s))
+    # Ambiguous without dat: prefer larger stride (avoids mis-splitting 76 as 44)
+    return max(candidates)
+
+
+def _score_pbs_stride(pbs: bytes, dat: bytes, stride: int) -> int:
+    n = (len(pbs) - PBS_HEADER_SIZE) // stride
+    checked = min(200, n)
+    good = 0
+    for i in range(checked):
+        rec = pbs[PBS_HEADER_SIZE + i * stride : PBS_HEADER_SIZE + (i + 1) * stride]
+        try:
+            _sn, _sub, _tick, _core, strlen, stroff = _unpack_pbs_record(rec, stride)
+        except struct.error:
+            return 0
+        if strlen == 0:
+            continue
+        if stroff < len(dat) and stroff + min(strlen, 1) <= len(dat):
+            good += 1
+    return good
+
+
+def _unpack_pbs_record(
+    rec: bytes, rec_size: int
+) -> Tuple[int, int, int, int, int, int]:
+    """Return sn, sub, tick_ms, core, strlen, stroff."""
+    _seq, sn, sub, tick_ms, core, _unk0 = struct.unpack_from("<IiIIiI", rec, 0)
+    # R9.26 (76B): 4-byte field inserted at offset 24; string block starts at 28.
+    # R9.21/23 (44) and R9.25 (52=44+pad): string block at 24.
+    field_off = 28 if rec_size >= 76 else 24
+    _pad, strlen, stroff, _u1, _u2, _u3 = struct.unpack_from(
+        "<HHIIII", rec, field_off
+    )
+    return sn, sub, tick_ms, core, strlen, stroff
 
 
 def _content_richness(s: str) -> int:
@@ -59,19 +116,16 @@ def _same_content_family(primary: str, other: str) -> bool:
 def build_content_index(dat_path: Path, pbs_path: Path) -> ContentIndex:
     dat = dat_path.read_bytes()
     pbs = pbs_path.read_bytes()
-    if len(pbs) < PBS_HEADER_SIZE + PBS_REC_SIZE or pbs[:4] != PBS_MAGIC:
+    try:
+        rec_size = detect_pbs_rec_size(pbs, dat)
+    except ValueError:
         return {}
-    n = (len(pbs) - PBS_HEADER_SIZE) // PBS_REC_SIZE
+    n = (len(pbs) - PBS_HEADER_SIZE) // rec_size
     idx: ContentIndex = defaultdict(list)
     for i in range(n):
-        off = PBS_HEADER_SIZE + i * PBS_REC_SIZE
-        rec = pbs[off : off + PBS_REC_SIZE]
-        _seq, sn, sub, tick_ms, _core, _unk0 = struct.unpack_from(
-            "<IiIIiI", rec, 0
-        )
-        _pad, strlen, stroff, _u1, _u2, _u3 = struct.unpack_from(
-            "<HHIIII", rec, 24
-        )
+        off = PBS_HEADER_SIZE + i * rec_size
+        rec = pbs[off : off + rec_size]
+        sn, sub, tick_ms, _core, strlen, stroff = _unpack_pbs_record(rec, rec_size)
         if stroff >= len(dat) or strlen == 0:
             content = ""
         else:
@@ -124,8 +178,10 @@ def export_from_traceview(
         raise ValueError(
             f"invalid traceview.pbs (magic={pbs[:4]!r}): {pbs_path}"
         )
-    if len(pbs) < PBS_HEADER_SIZE + PBS_REC_SIZE:
-        raise ValueError(f"traceview.pbs too small: {pbs_path}")
+    try:
+        rec_size = detect_pbs_rec_size(pbs, dat)
+    except ValueError as e:
+        raise ValueError(f"{e}: {pbs_path}") from e
 
     alt_indexes: List[ContentIndex] = []
     if enrich_from_siblings:
@@ -135,14 +191,12 @@ def export_from_traceview(
             except OSError:
                 continue
 
-    n = (len(pbs) - PBS_HEADER_SIZE) // PBS_REC_SIZE
+    n = (len(pbs) - PBS_HEADER_SIZE) // rec_size
     lines = [HDR]
     for i in range(n):
-        off = PBS_HEADER_SIZE + i * PBS_REC_SIZE
-        rec = pbs[off : off + PBS_REC_SIZE]
-        # seq, sn, sub, tick_ms, core, unk0, pad, strlen, stroff, unk1, unk2, unk3
-        _seq, sn, sub, tick_ms, core, _unk0 = struct.unpack_from("<IiIIiI", rec, 0)
-        _pad, strlen, stroff, _u1, _u2, _u3 = struct.unpack_from("<HHIIII", rec, 24)
+        off = PBS_HEADER_SIZE + i * rec_size
+        rec = pbs[off : off + rec_size]
+        sn, sub, tick_ms, core, strlen, stroff = _unpack_pbs_record(rec, rec_size)
         if stroff >= len(dat) or strlen == 0:
             content = ""
         else:
