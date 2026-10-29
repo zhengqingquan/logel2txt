@@ -7,13 +7,20 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 
+def list_traceview_pairs(root: Path) -> List[Tuple[Path, Path]]:
+    """目录树内全部 traceview.dat/.pbs 对（不排序去重）。"""
+    pairs: List[Tuple[Path, Path]] = []
+    for dat in root.rglob("traceview.dat"):
+        pbs = dat.with_suffix(".pbs")
+        if pbs.is_file():
+            pairs.append((dat, pbs))
+    return pairs
+
+
 def find_traceview_pair(root: Path) -> Optional[Tuple[Path, Path]]:
     """在目录树中查找 traceview.dat/.pbs，优先 *_pb。"""
     candidates: List[Tuple[int, Path, Path]] = []
-    for dat in root.rglob("traceview.dat"):
-        pbs = dat.with_suffix(".pbs")
-        if not pbs.is_file():
-            continue
+    for dat, pbs in list_traceview_pairs(root):
         pri = 0 if "_pb" in dat.parent.name.lower() else 1
         candidates.append((pri, dat, pbs))
     if not candidates:
@@ -21,6 +28,25 @@ def find_traceview_pair(root: Path) -> Optional[Tuple[Path, Path]]:
     candidates.sort(key=lambda x: (x[0], -x[1].stat().st_size))
     _, dat, pbs = candidates[0]
     return dat, pbs
+
+
+def sibling_traceview_pairs(primary_dat: Path) -> List[Tuple[Path, Path]]:
+    """与主 cache 同 armlog 包下的其它 traceview 对（用于 Content 补全）。"""
+    primary_dat = primary_dat.resolve()
+    # *_pb 或普通 cache 的父级一般为 armlog 根
+    roots = {primary_dat.parent, primary_dat.parent.parent}
+    seen = {primary_dat}
+    out: List[Tuple[Path, Path]] = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for dat, pbs in list_traceview_pairs(root):
+            dat = dat.resolve()
+            if dat in seen:
+                continue
+            seen.add(dat)
+            out.append((dat, pbs))
+    return out
 
 
 def find_logel(root: Path) -> Optional[Path]:

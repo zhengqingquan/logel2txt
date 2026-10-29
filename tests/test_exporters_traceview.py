@@ -12,7 +12,9 @@ from logel2txt.exporters import (
     PBS_HEADER_SIZE,
     PBS_MAGIC,
     PBS_REC_SIZE,
+    enrich_content,
     export_from_traceview,
+    looks_degraded_numeric,
 )
 from logel2txt.format import format_hms_ms
 
@@ -87,6 +89,52 @@ class TestExportFromTraceview(unittest.TestCase):
             pbs_path.write_bytes(b"XXXX" + b"\0" * (PBS_HEADER_SIZE + PBS_REC_SIZE))
             with self.assertRaises(ValueError):
                 export_from_traceview(dat_path, pbs_path, 0)
+
+    def test_enrich_replaces_degraded_numeric(self):
+        bad = "=" + "25010982249966588" + ("0" * 140)
+        good = "=" + "250109822499665877183536215916006123879478201085146530336857961955" + ("1" * 80)
+        self.assertTrue(looks_degraded_numeric(bad))
+        self.assertFalse(looks_degraded_numeric(good))
+        alt = {(42, 2, 100): [good]}
+        self.assertEqual(enrich_content(42, 2, 100, bad, [alt]), good)
+        # non-degraded left alone
+        self.assertEqual(enrich_content(42, 2, 100, "ok", [alt]), "ok")
+
+    def test_export_enriches_from_sibling_cache(self):
+        bad = (b"=" + b"25010982249966588" + (b"0" * 140))[:158]
+        good = (
+            b"="
+            + b"25010982249966587718353621591600612387947820108514653033685"
+            + (b"1" * 200)
+        )[:158]
+        self.assertEqual(len(bad), 158)
+        self.assertEqual(len(good), 158)
+        sn, sub, tick_ms, core = 1670, 2, 334072, -1
+
+        def pack(dat_bytes: bytes) -> tuple:
+            rec = _build_pbs_record(sn, sub, tick_ms, core, len(dat_bytes) + 1, 0)
+            pbs = PBS_MAGIC + b"\0" * (PBS_HEADER_SIZE - 4) + rec
+            return dat_bytes + b"\0", pbs
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            pb = root / "sample_pb"
+            plain = root / "sample"
+            pb.mkdir()
+            plain.mkdir()
+            dat_b, pbs_b = pack(bad)
+            dat_g, pbs_g = pack(good)
+            (pb / "traceview.dat").write_bytes(dat_b)
+            (pb / "traceview.pbs").write_bytes(pbs_b)
+            (plain / "traceview.dat").write_bytes(dat_g)
+            (plain / "traceview.pbs").write_bytes(pbs_g)
+
+            lines = export_from_traceview(
+                pb / "traceview.dat", pb / "traceview.pbs", 0
+            )
+            content = lines[1].split("\t")[3].rstrip()
+            self.assertTrue(content.startswith("=250109822499665877"))
+            self.assertNotIn("880000000", content[:30])
 
 
 if __name__ == "__main__":

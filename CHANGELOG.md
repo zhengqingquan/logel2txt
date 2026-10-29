@@ -12,6 +12,7 @@
 ### 修复
 
 - Content 中 `0xFF` 等字节改为 latin-1 编解码，避免写成 U+FFFD，更接近 Logel Export Trace。
+- CLI `*_pb` 中偶发 double 零填充大数 Content：若同包其它 traceview 缓存有同 SN/sub/Tick 的更完整串则替换。
 
 ### 文档
 
