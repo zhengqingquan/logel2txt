@@ -2,9 +2,19 @@
 
 将展锐 **ArmLogel / Logel** 的 ARM 日志导出为文本（`.txt` / `.trace`），格式对齐 **Export Trace**。
 
-**0.1.0**（[CHANGELOG](CHANGELOG.md)）· 列：`SN` / `UE Time` / `CORE` / `Content` / `Module` / `TickCount`（Tab · CRLF）
+**0.2.0**（[CHANGELOG](CHANGELOG.md)）· 列：`SN` / `UE Time` / `CORE` / `Content` / `Module` / `TickCount`（Tab · CRLF）
 
 说明：[目录结构](docs/armlog-layout.md) · [常见问题](docs/troubleshooting.md)
+
+## 子命令一览
+
+| 命令 | 用途 |
+|------|------|
+| （默认）导出 | 从 `*_pb` / plain `traceview` / `.logel` 明文写出 txt |
+| `playback` | 外调 Logel 回放生成 `*_pb` 再导出（推荐完整件） |
+| `follow` | 对**已写出**的增长中 `traceview` 增量追加 live txt |
+| `info` | 从 `*.lst` 读抓取/回放用的 `Tool Version` |
+| `-V` | 版本号 |
 
 ## 快速开始
 
@@ -44,6 +54,31 @@ logel2txt.exe playback "D:\work\logs\xxx_armlog.zip" -o out.txt --ue-base 14:35:
 | `--no-hide` | 回放时显示 Logel 窗口 |
 | `--skip-playback` | 跳过回放，假定已有 `*_pb` |
 
+### follow（增量读已写出的 traceview）
+
+对目录里**已经落盘**的 `traceview.dat` / `.pbs` 做增量追加（容忍尾部半截记录、未齐的 dat 串；stride 探测按对齐前缀评分）。**不是** Export Trace 完整件。
+
+| 场景 | 预期 |
+|------|------|
+| 停抓后 / 已有 plain 或 `*_pb` 缓存 | `follow` 可追加/续传 |
+| 抓取过程中（部分 Logel，如 R9.23） | **常不刷** `traceview.dat`（0 字节），`follow` 读不到行 |
+| 边抓边看（Agent） | 请用 [logel-log-capture](https://github.com/zhengqingquan/logel-log-capture) 的 `lcapt --live-export`：抓取中走 `.logel` 明文，停抓后再用缓存覆盖 |
+
+```bat
+python logel2txt.py follow "D:\work\logs\xxx_armlog" -o live.txt --interval 2
+python logel2txt.py follow "D:\work\logs\xxx_armlog" -o live.txt --once
+logel2txt.exe follow "D:\work\logs\xxx_armlog" --stdout --once
+```
+
+| `follow` 参数 | 说明 |
+|------|------|
+| `-o` | 追加写出的 live txt（默认：输入目录下 `live.txt`） |
+| `--interval` | 轮询间隔秒（默认 2） |
+| `--once` | 只跑一轮增量（给外部轮询器） |
+| `--stdout` | 新行打到 stdout，不写文件 |
+| `--from-index` | 起始 PBS 记录下标（默认按已有 `-o` 数据行数续传） |
+| `--ue-base` / `--traceview` | UE 起点 / 多份缓存时指定目录 |
+
 ### 已有 *_pb 时只导出
 
 1. 用 Logel 打开 armlog / `.logel`，等解析完成并生成 `*_pb`（内含 `traceview.dat` / `.pbs`）
@@ -72,7 +107,8 @@ python logel2txt.py "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
 | 输入 | 效果 |
 |------|------|
 | `*_pb\traceview.*`（推荐） | 完整导出，可对齐 Export Trace |
-| 非 `_pb` 的旧 `traceview.*` | 可能偏少（stderr 有警告） |
+| 非 `_pb` 的 plain `traceview.*` | 可能偏少（stderr 有警告）；`follow` 可读增长中的完整记录 |
+| 抓取中尚未刷盘的 `traceview.dat`（0 字节） | `follow` 无数据行；需等停抓或改用其它工具的 raw 路径 |
 | 仅 `.logel` / 刚解压 rar | 明文抽取，不完整（请用 `playback`） |
 | 空的 `*_trace.txt` | 无效 |
 
@@ -82,4 +118,4 @@ python logel2txt.py "D:\work\logs\xxx_armlog" -o out.txt --ue-base 17:15:12.275
 
 - 依赖：Windows；运行可用 exe，或 Python 3.7+
 - 测试：`python -m unittest discover -s tests -v`
-- 打包：`python -m PyInstaller --noconfirm --clean logel2txt.spec` → `dist\logel2txt.exe`（含 `playback` 子命令）
+- 打包：`python -m PyInstaller --noconfirm --clean logel2txt.spec` → `dist\logel2txt.exe`（含 `playback` / `follow` / `info`）

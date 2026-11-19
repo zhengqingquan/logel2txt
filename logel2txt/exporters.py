@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 import struct
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -32,16 +33,34 @@ def _decode_content(raw: bytes) -> str:
     return raw.split(b"\0", 1)[0].decode("latin-1", errors="replace")
 
 
+def _aligned_pbs_prefix(pbs: bytes, stride: int) -> bytes:
+    """截到 header + N*stride，忽略增长中的尾部半截。"""
+    if stride <= 0 or len(pbs) < PBS_HEADER_SIZE:
+        return pbs[:PBS_HEADER_SIZE]
+    n = (len(pbs) - PBS_HEADER_SIZE) // stride
+    return pbs[: PBS_HEADER_SIZE + n * stride]
+
+
 def detect_pbs_rec_size(
-    pbs: bytes, dat: Optional[bytes] = None
+    pbs: bytes,
+    dat: Optional[bytes] = None,
+    *,
+    allow_partial: bool = False,
 ) -> int:
-    """Detect PBS record stride: 44 (R9.21/R9.23), 52 (R9.25), 76 (R9.26)."""
+    """Detect PBS record stride: 44 (R9.21/R9.23), 52 (R9.25), 76 (R9.26).
+
+    ``allow_partial=True``：抓取中增长的 `.pbs` 末尾可能半截记录，允许 body 不整除
+    stride；评分前按各候选 stride 向下对齐，避免误选更大步长。
+    """
     if len(pbs) < 4 or pbs[:4] != PBS_MAGIC:
         raise ValueError(f"invalid traceview.pbs magic={pbs[:4]!r}")
     if len(pbs) < PBS_HEADER_SIZE + min(PBS_REC_SIZES):
         raise ValueError("traceview.pbs too small")
     body = len(pbs) - PBS_HEADER_SIZE
-    candidates = [s for s in PBS_REC_SIZES if body >= s and body % s == 0]
+    if allow_partial:
+        candidates = [s for s in PBS_REC_SIZES if body >= s]
+    else:
+        candidates = [s for s in PBS_REC_SIZES if body >= s and body % s == 0]
     if not candidates:
         raise ValueError(
             f"unsupported PBS layout (body={body} bytes; "
@@ -50,9 +69,30 @@ def detect_pbs_rec_size(
     if len(candidates) == 1:
         return candidates[0]
     if dat is not None:
-        return max(candidates, key=lambda s: _score_pbs_stride(pbs, dat, s))
+        # 对每个候选用对齐后的前缀评分，避免半截 body 把 44 误判成 76
+        return max(
+            candidates,
+            key=lambda s: _score_pbs_stride(_aligned_pbs_prefix(pbs, s), dat, s),
+        )
     # Ambiguous without dat: prefer larger stride (avoids mis-splitting 76 as 44)
     return max(candidates)
+
+
+def complete_pbs_count(pbs_len: int, rec_size: int) -> int:
+    """完整 PBS 记录条数（忽略尾部半截）。"""
+    if pbs_len < PBS_HEADER_SIZE or rec_size <= 0:
+        return 0
+    return (pbs_len - PBS_HEADER_SIZE) // rec_size
+
+
+@dataclass
+class TraceviewSlice:
+    """增量导出一段完整记录。"""
+
+    lines: List[str]  # 仅数据行（不含表头）
+    next_index: int
+    rec_size: int
+    complete_count: int
 
 
 def _score_pbs_stride(pbs: bytes, dat: bytes, stride: int) -> int:
@@ -155,6 +195,82 @@ def enrich_content(
             if score > best_score:
                 best, best_score = cand, score
     return best
+
+
+def export_traceview_incremental(
+    dat_path: Path,
+    pbs_path: Path,
+    ue_base_ms: int,
+    *,
+    start_index: int = 0,
+    rec_size: Optional[int] = None,
+    enrich_from_siblings: bool = False,
+) -> TraceviewSlice:
+    """从增长中的 traceview 增量导出完整记录。
+
+    - 忽略 `.pbs` 尾部半截记录；
+    - 某条记录指向的 `.dat` 串尚未写完时停止，``next_index`` 停在该条，下次重试；
+    - 默认不做 sibling enrich（live 场景通常只有一份 plain 缓存）。
+    """
+    try:
+        dat = dat_path.read_bytes()
+    except OSError as e:
+        raise OSError(f"failed to read {dat_path}: {e}") from e
+    try:
+        pbs = pbs_path.read_bytes()
+    except OSError as e:
+        raise OSError(f"failed to read {pbs_path}: {e}") from e
+    if len(pbs) < 4:
+        return TraceviewSlice([], start_index, rec_size or 0, 0)
+    if pbs[:4] != PBS_MAGIC:
+        raise ValueError(
+            f"invalid traceview.pbs (magic={pbs[:4]!r}): {pbs_path}"
+        )
+    if len(pbs) < PBS_HEADER_SIZE + min(PBS_REC_SIZES):
+        return TraceviewSlice([], start_index, rec_size or 0, 0)
+
+    if rec_size is None:
+        try:
+            rec_size = detect_pbs_rec_size(pbs, dat, allow_partial=True)
+        except ValueError as e:
+            raise ValueError(f"{e}: {pbs_path}") from e
+
+    # 解码只用对齐前缀，避免尾部半截干扰
+    pbs = _aligned_pbs_prefix(pbs, rec_size)
+    complete_n = complete_pbs_count(len(pbs), rec_size)
+    if start_index < 0:
+        start_index = 0
+    if start_index >= complete_n:
+        return TraceviewSlice([], start_index, rec_size, complete_n)
+
+    alt_indexes: List[ContentIndex] = []
+    if enrich_from_siblings:
+        for alt_dat, alt_pbs in sibling_traceview_pairs(dat_path):
+            try:
+                alt_indexes.append(build_content_index(alt_dat, alt_pbs))
+            except OSError:
+                continue
+
+    lines: List[str] = []
+    next_index = start_index
+    for i in range(start_index, complete_n):
+        off = PBS_HEADER_SIZE + i * rec_size
+        rec = pbs[off : off + rec_size]
+        sn, sub, tick_ms, core, strlen, stroff = _unpack_pbs_record(rec, rec_size)
+        if strlen > 0 and (stroff >= len(dat) or stroff + strlen > len(dat)):
+            # dat 串未齐：停在此条，下轮再试
+            break
+        if stroff >= len(dat) or strlen == 0:
+            content = ""
+        else:
+            content = _decode_content(dat[stroff : stroff + strlen])
+        if alt_indexes:
+            content = enrich_content(sn, sub, tick_ms, content, alt_indexes)
+        lines.append(
+            format_line(sn, sub, tick_ms, core, content, "", ue_base_ms)
+        )
+        next_index = i + 1
+    return TraceviewSlice(lines, next_index, rec_size, complete_n)
 
 
 def export_from_traceview(
@@ -266,3 +382,48 @@ def write_lines(path: Path, lines: Iterable[str]) -> None:
         path.write_bytes(text.encode("latin-1", errors="replace"))
     except OSError as e:
         raise OSError(f"failed to write {path}: {e}") from e
+
+
+def count_data_lines(path: Path) -> int:
+    """统计已写出文本的数据行数（不含表头）。文件不存在则 0。"""
+    if not path.is_file():
+        return 0
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return 0
+    if not raw:
+        return 0
+    # 按 CRLF / LF 拆；首行若是表头则减去
+    text = raw.decode("latin-1", errors="replace")
+    parts = text.splitlines()
+    if not parts:
+        return 0
+    if parts[0].startswith("SN") and "UE Time" in parts[0]:
+        return max(0, len(parts) - 1)
+    return len(parts)
+
+
+def append_data_lines(
+    path: Path,
+    lines: Sequence[str],
+    *,
+    write_header: bool,
+) -> None:
+    """追加数据行到 live 文本；``write_header`` 时先写表头（新建文件）。"""
+    if not lines and not write_header:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        chunks: List[str] = []
+        if write_header:
+            chunks.append(HDR)
+        chunks.extend(lines)
+        text = "\r\n".join(chunks)
+        if not text.endswith("\r\n"):
+            text += "\r\n"
+        data = text.encode("latin-1", errors="replace")
+        with path.open("ab") as fh:
+            fh.write(data)
+    except OSError as e:
+        raise OSError(f"failed to append {path}: {e}") from e

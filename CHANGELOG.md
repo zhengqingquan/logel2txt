@@ -4,8 +4,13 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-19
+
 ### 新增
 
+- **`logel2txt follow`**：对增长中的 plain `traceview` 增量追加文本（`--once` / `--interval` / `--stdout`）。
+- **`export_traceview_incremental`**：忽略尾部半截 `.pbs`、等待未齐 `.dat` 串；按 `start_index` 续传。
+- `detect_pbs_rec_size(..., allow_partial=True)`、`append_data_lines` / `count_data_lines`。
 - `logel2txt playback`：Logel 命令行回放生成 `*_pb` 后导出；支持 `--logel` / `--no-hide` / `--skip-playback`。
 - `logel2txt/playback.py`：回放逻辑；须 `--logel` / `LOGEL_EXE` 或 `--logel-root` / `LOGEL_ROOT`（无内置默认路径）；兼容 R9.21–R9.26（可从 exe FileVersion 识别）；`--logel-root` 亦扫描 `Logel\`。
 - PBS 自动识别 **44 / 52 / 76** 字节记录（R9.21/23、R9.25、R9.26 CLI/GUI 缓存）。
@@ -21,8 +26,10 @@
 - CLI `*_pb` 中偶发 double 零填充大数 Content：若同包其它 traceview 缓存有同 SN/sub/Tick 的更完整串则替换。
 - 输入目录含多个 `.logel` 时 stderr 提示并列出其它文件（仍选用其中一个）。
 
-### 文档
+### 说明
 
+- `follow` 只读**已落盘**的 plain / 增长中 `traceview`；部分 Logel（如 R9.23）抓取中不刷 `traceview.dat`，此时无行可读。边抓边看请配合 `lcapt --live-export`（raw `.logel`）。
+- 完整度低于 `*_pb` / Export Trace；停抓后请用普通导出或 `playback`。
 - 说明 R9.21–R9.26 CLI PBS 记录长度差异与 `playback` 用法；主推 `playback` 子命令。
 
 ## [0.1.0] - 2026-09-09
